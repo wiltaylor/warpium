@@ -1987,6 +1987,26 @@ impl RootView {
             .map(|p| p.yearly_plan_price_per_month_usd_cents)
     }
 
+    fn is_claude_code_installed() -> bool {
+        let Some(paths) = std::env::var_os("PATH") else {
+            return false;
+        };
+
+        std::env::split_paths(&paths).any(|path| {
+            let executable = path.join("claude");
+            executable.is_file()
+                || cfg!(windows)
+                    && std::env::var_os("PATHEXT")
+                        .map(|extensions| {
+                            extensions
+                                .to_string_lossy()
+                                .split(';')
+                                .any(|extension| path.join(format!("claude{extension}")).is_file())
+                        })
+                        .unwrap_or(false)
+        })
+    }
+
     fn create_agent_onboarding_view(
         ctx: &mut ViewContext<Self>,
     ) -> ViewHandle<AgentOnboardingView> {
@@ -2014,6 +2034,7 @@ impl RootView {
                 false, // Always use unskippable onboarding.
                 models,
                 default_model_id,
+                Self::is_claude_code_installed(),
                 workspace_enforces_autonomy,
                 FeatureFlag::AgentView.is_enabled(),
                 is_free_user_no_ai_experiment_active(ctx),

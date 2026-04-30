@@ -34,7 +34,6 @@ use crate::ai::agent_management::notifications::view::{
     NotificationMailboxView, NotificationMailboxViewEvent,
 };
 use crate::ai::agent_management::notifications::NotificationFilter;
-use crate::ai::agent_management::telemetry::AgentManagementTelemetryEvent;
 use crate::ai::agent_management::view::{AgentManagementView, AgentManagementViewEvent};
 use crate::ai::agent_management::AgentManagementEvent;
 use crate::ai::ambient_agents::telemetry::{CloudAgentTelemetryEvent, CloudModeEntryPoint};
@@ -7811,45 +7810,7 @@ impl Workspace {
         ctx.notify();
     }
 
-    /// Auto-opens the conversation list on first app start.
-    /// Once we've done this once, we persist a preference so subsequent restarts
-    /// will respect the user's visibility preference (restored from workspace state).
-    fn maybe_auto_open_conversation_list(&mut self, ctx: &mut ViewContext<Self>) {
-        if !FeatureFlag::AgentViewConversationListView.is_enabled()
-            || !AISettings::as_ref(ctx).is_any_ai_enabled(ctx)
-        {
-            return;
-        }
-
-        let has_auto_opened = *AISettings::as_ref(ctx).has_auto_opened_conversation_list;
-        if has_auto_opened {
-            return;
-        }
-
-        // Only auto-open on terminal tabs, not on settings or other non-terminal tabs
-        let has_terminal = self
-            .active_tab_pane_group()
-            .as_ref(ctx)
-            .has_terminal_panes();
-        if !has_terminal {
-            return;
-        }
-
-        // For first-time-users, auto-open the conversation list for discoverability
-        if !self.active_tab_pane_group().as_ref(ctx).left_panel_open {
-            self.open_left_panel(ctx);
-        }
-        self.left_panel_view.update(ctx, |lp, ctx| {
-            lp.restore_active_view_from_snapshot(ToolPanelView::ConversationListView, ctx);
-        });
-
-        // Mark that we've done the one-time auto-open
-        AISettings::handle(ctx).update(ctx, |settings, ctx| {
-            report_if_error!(settings
-                .has_auto_opened_conversation_list
-                .set_value(true, ctx));
-        });
-    }
+    fn maybe_auto_open_conversation_list(&mut self, _ctx: &mut ViewContext<Self>) {}
 
     fn close_left_panel(&mut self, ctx: &mut ViewContext<Self>) {
         self.left_panel_open = false;
@@ -17160,13 +17121,7 @@ impl Workspace {
             .finish();
         } else {
             // Copy from our saved tab_bar_state to ensure all tabs get rendered with the same state
-            let active_tab_index = if FeatureFlag::AgentManagementView.is_enabled()
-                && self.current_workspace_state.is_agent_management_view_open
-            {
-                None
-            } else {
-                Some(self.active_tab_index)
-            };
+            let active_tab_index = Some(self.active_tab_index);
 
             let tab_bar_state = TabBarState {
                 tab_count: self.tabs.len(),
@@ -18177,13 +18132,7 @@ impl Workspace {
     ) -> Box<dyn Element> {
         let active_tab_data = &self.tabs[self.active_tab_index];
 
-        let active_content = if FeatureFlag::AgentManagementView.is_enabled()
-            && self.current_workspace_state.is_agent_management_view_open
-        {
-            ChildView::new(&self.agent_management_view).finish()
-        } else {
-            ChildView::new(&active_tab_data.pane_group).finish()
-        };
+        let active_content = ChildView::new(&active_tab_data.pane_group).finish();
 
         let terminal_content = match self.maybe_render_workspace_banner(app, appearance) {
             Some(banner_element) => Flex::column()
@@ -19595,13 +19544,6 @@ impl Workspace {
     /// Computes the list of available left panel views based on current AI settings and feature flags.
     fn compute_left_panel_views(ctx: &AppContext) -> Vec<ToolPanelView> {
         let mut views = vec![];
-        if FeatureFlag::AgentViewConversationListView.is_enabled()
-            && AISettings::as_ref(ctx).is_any_ai_enabled(ctx)
-            && *AISettings::as_ref(ctx).show_conversation_history
-        {
-            views.push(ToolPanelView::ConversationListView);
-        }
-
         if cfg!(feature = "local_fs") && *CodeSettings::as_ref(ctx).show_project_explorer.value() {
             views.push(ToolPanelView::ProjectExplorer);
         }
@@ -20491,41 +20433,9 @@ impl TypedActionView for Workspace {
                 );
                 ctx.notify();
             }
-            ToggleAgentManagementView => {
-                if AISettings::as_ref(ctx).is_any_ai_enabled(ctx)
-                    && FeatureFlag::AgentManagementView.is_enabled()
-                {
-                    let is_open = !self.current_workspace_state.is_agent_management_view_open;
-                    self.set_is_agent_management_view_open(is_open, ctx);
-
-                    send_telemetry_from_ctx!(
-                        AgentManagementTelemetryEvent::ViewToggled { is_open },
-                        ctx
-                    );
-
-                    if is_open {
-                        ctx.focus(&self.agent_management_view);
-                    } else {
-                        self.focus_active_tab(ctx);
-                    }
-
-                    ctx.notify();
-                }
-            }
+            ToggleAgentManagementView => {}
             ViewAgentRunsForEnvironment { environment_id } => {
-                if AISettings::as_ref(ctx).is_any_ai_enabled(ctx)
-                    && FeatureFlag::AgentManagementView.is_enabled()
-                {
-                    self.set_is_agent_management_view_open(true, ctx);
-                    ctx.focus(&self.agent_management_view);
-
-                    let environment_id = environment_id.clone();
-                    self.agent_management_view.update(ctx, |view, ctx| {
-                        view.apply_environment_filter_from_link(environment_id, ctx);
-                    });
-
-                    ctx.notify();
-                }
+                let _ = environment_id;
             }
             ClosePanel => {
                 if self.left_panel_view.is_self_or_child_focused(ctx) {
@@ -21514,17 +21424,7 @@ impl TypedActionView for Workspace {
                     );
                 }
             }
-            ToggleConversationListView => {
-                if FeatureFlag::AgentViewConversationListView.is_enabled() {
-                    let is_showing = self.left_panel_view.as_ref(ctx).active_view()
-                        == ToolPanelView::ConversationListView;
-                    self.toggle_left_panel_view(
-                        &LeftPanelAction::ConversationListView,
-                        is_showing,
-                        ctx,
-                    );
-                }
-            }
+            ToggleConversationListView => {}
             ShowRewindConfirmationDialog {
                 ai_block_view_id,
                 exchange_id,

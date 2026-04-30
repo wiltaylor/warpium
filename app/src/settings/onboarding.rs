@@ -2,7 +2,7 @@ use crate::ai::execution_profiles::profiles::AIExecutionProfilesModel;
 use crate::ai::execution_profiles::{ActionPermission, WriteToPtyPermission};
 use crate::drive::settings::WarpDriveSettings;
 use crate::report_if_error;
-use crate::settings::ai::DefaultSessionMode;
+use crate::settings::ai::{AgentModeProvider, DefaultSessionMode};
 use crate::settings::{AISettings, CodeSettings};
 use crate::workspace::tab_settings::TabSettings;
 use crate::workspaces::user_workspaces::UserWorkspaces;
@@ -127,6 +127,12 @@ fn apply_agent_settings(agent_settings: &AgentDevelopmentSettings, app: &mut App
         report_if_error!(settings
             .show_agent_notifications
             .set_value(agent_settings.show_agent_notifications, ctx));
+        let provider = if agent_settings.use_claude_code_provider {
+            AgentModeProvider::ClaudeCode
+        } else {
+            AgentModeProvider::None
+        };
+        report_if_error!(settings.agent_mode_provider.set_value(provider, ctx));
     });
 
     AIExecutionProfilesModel::handle(app).update(app, |profiles, ctx| {

@@ -2137,15 +2137,20 @@ impl BlocklistAIController {
             return Err(anyhow::anyhow!(AI_INPUT_NOT_SENT_ERROR_STR));
         }
 
-        if input_contains_user_query
-            && *AISettings::as_ref(ctx).agent_mode_provider.value() == AgentModeProvider::ClaudeCode
-        {
-            return self.send_local_claude_request_input(
-                request_input,
-                query_metadata,
-                is_queued_prompt,
-                ctx,
-            );
+        if input_contains_user_query {
+            match *AISettings::as_ref(ctx).agent_mode_provider.value() {
+                AgentModeProvider::ClaudeCode => {
+                    return self.send_local_claude_request_input(
+                        request_input,
+                        query_metadata,
+                        is_queued_prompt,
+                        ctx,
+                    );
+                }
+                AgentModeProvider::None | AgentModeProvider::WarpAi => {
+                    return Err(anyhow::anyhow!("No Agent Mode provider is selected"));
+                }
+            }
         }
 
         let conversation_data = api::ConversationData {

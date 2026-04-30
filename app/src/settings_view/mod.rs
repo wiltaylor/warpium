@@ -36,7 +36,7 @@ use itertools::Itertools as _;
 use keybindings::KeybindingsView;
 use main_page::{MainPageAction, MainSettingsPageEvent, MainSettingsPageView};
 use mcp_servers_page::MCPServersSettingsPageView;
-use nav::{SettingsNavItem, SettingsUmbrella};
+use nav::SettingsNavItem;
 use pathfinder_geometry::vector::Vector2F;
 use privacy_page::{PrivacyPageView, PrivacyPageViewEvent};
 use referrals_page::{ReferralsPageEvent, ReferralsPageView};
@@ -200,10 +200,7 @@ pub enum SettingsSection {
     Teams,
     WarpDrive,
     Warpify,
-    /// Internal backing-page identifier for AISettingsPageView. Multiple subpages
-    /// (WarpAgent, AgentProfiles, Knowledge, ThirdPartyCLIAgents) share this single
-    /// backing page, so this variant is needed as the key in `settings_pages`.
-    /// External callers should navigate to a specific subpage (e.g. `WarpAgent`) instead.
+    /// Backing page identifier for AISettingsPageView.
     AI,
     // ── Agents umbrella subpages ──
     WarpAgent,
@@ -211,10 +208,7 @@ pub enum SettingsSection {
     AgentMCPServers,
     Knowledge,
     ThirdPartyCLIAgents,
-    /// Internal backing-page identifier for CodeSettingsPageView. Multiple subpages
-    /// (CodeIndexing, EditorAndCodeReview) share this single backing page,
-    /// so this variant is needed as the key in `settings_pages`.
-    /// External callers should navigate to a specific subpage instead.
+    /// Backing page identifier for CodeSettingsPageView.
     Code,
     // ── Code umbrella subpages ──
     CodeIndexing,
@@ -235,11 +229,13 @@ impl Display for SettingsSection {
             SettingsSection::SharedBlocks => write!(f, "Shared blocks"),
             SettingsSection::MCPServers => write!(f, "MCP Servers"),
             SettingsSection::WarpDrive => write!(f, "Warp Drive"),
+            SettingsSection::AI => write!(f, "Agents"),
             SettingsSection::WarpAgent => write!(f, "Warp Agent"),
             SettingsSection::AgentProfiles => write!(f, "Profiles"),
             SettingsSection::AgentMCPServers => write!(f, "MCP servers"),
             SettingsSection::Knowledge => write!(f, "Knowledge"),
             SettingsSection::ThirdPartyCLIAgents => write!(f, "Third party CLI agents"),
+            SettingsSection::Code => write!(f, "Code"),
             SettingsSection::CodeIndexing => write!(f, "Indexing and projects"),
             SettingsSection::EditorAndCodeReview => write!(f, "Editor and Code Review"),
             SettingsSection::CloudEnvironments => write!(f, "Environments"),
@@ -257,19 +253,12 @@ impl SettingsSection {
 
     /// Returns true if this section is a subpage under the "Agents" umbrella.
     pub fn is_ai_subpage(&self) -> bool {
-        matches!(
-            self,
-            Self::WarpAgent
-                | Self::AgentProfiles
-                | Self::AgentMCPServers
-                | Self::Knowledge
-                | Self::ThirdPartyCLIAgents
-        )
+        matches!(self, Self::AgentMCPServers | Self::Knowledge)
     }
 
     /// Returns true if this section is a subpage under the "Code" umbrella.
     pub fn is_code_subpage(&self) -> bool {
-        matches!(self, Self::CodeIndexing | Self::EditorAndCodeReview)
+        matches!(self, Self::CodeIndexing)
     }
 
     /// Returns true if this section is a subpage under the "Cloud platform" umbrella.
@@ -288,9 +277,13 @@ impl SettingsSection {
                 | Self::Referrals
                 | Self::Teams
                 | Self::WarpDrive
+                | Self::WarpAgent
+                | Self::AgentProfiles
                 | Self::AgentMCPServers
                 | Self::Knowledge
+                | Self::ThirdPartyCLIAgents
                 | Self::CodeIndexing
+                | Self::EditorAndCodeReview
                 | Self::CloudEnvironments
                 | Self::OzCloudAPIKeys
         )
@@ -299,8 +292,8 @@ impl SettingsSection {
     /// Resolves legacy/internal section requests to a visible settings page.
     pub fn visible_destination(&self) -> Self {
         match self {
-            Self::AI => Self::WarpAgent,
-            Self::Code => Self::EditorAndCodeReview,
+            Self::WarpAgent | Self::AgentProfiles | Self::ThirdPartyCLIAgents => Self::AI,
+            Self::EditorAndCodeReview => Self::Code,
             section if section.is_removed_from_settings() => Self::Appearance,
             section => *section,
         }
@@ -312,7 +305,7 @@ impl SettingsSection {
         match self {
             // AgentMCPServers renders the standalone MCPServers page directly.
             Self::AgentMCPServers => Self::MCPServers,
-            // All other AI subpages render within the AI page.
+            // Any remaining AI subpages render within the AI page.
             s if s.is_ai_subpage() => Self::AI,
             // Code subpages render within the Code page.
             s if s.is_code_subpage() => Self::Code,
@@ -324,16 +317,12 @@ impl SettingsSection {
 
     /// The ordered list of AI subpage sections shown under the Agents umbrella.
     pub fn ai_subpages() -> &'static [Self] {
-        &[
-            Self::WarpAgent,
-            Self::AgentProfiles,
-            Self::ThirdPartyCLIAgents,
-        ]
+        &[]
     }
 
     /// The ordered list of Code subpage sections shown under the Code umbrella.
     pub fn code_subpages() -> &'static [Self] {
-        &[Self::EditorAndCodeReview]
+        &[]
     }
 
     /// The ordered list of Cloud platform subpage sections.
@@ -1207,18 +1196,11 @@ impl SettingsView {
             SettingsPage::new(about_page_handle),
         ]);
 
-        // Build sidebar nav items. AI page is presented as an "Agents" umbrella
-        // with subpages; the actual AI SettingsPage is hidden from direct sidebar listing.
+        // Build sidebar nav items.
         let mut nav_items = vec![
-            SettingsNavItem::Umbrella(SettingsUmbrella::new(
-                "Agents",
-                SettingsSection::ai_subpages().to_vec(),
-            )),
+            SettingsNavItem::Page(SettingsSection::AI),
             SettingsNavItem::Page(SettingsSection::BillingAndUsage),
-            SettingsNavItem::Umbrella(SettingsUmbrella::new(
-                "Code",
-                SettingsSection::code_subpages().to_vec(),
-            )),
+            SettingsNavItem::Page(SettingsSection::Code),
             SettingsNavItem::Page(SettingsSection::Appearance),
             SettingsNavItem::Page(SettingsSection::Features),
             SettingsNavItem::Page(SettingsSection::Keybindings),

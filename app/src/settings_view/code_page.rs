@@ -265,20 +265,6 @@ impl CodeSettingsPageView {
             }
         });
 
-        let manual_add_directory_button = ctx.add_typed_action_view(|_| {
-            ActionButton::new("Index new folder", SecondaryTheme)
-                .with_icon(Icon::FindAll)
-                .on_click(|ctx| {
-                    ctx.dispatch_typed_action(CodeSettingsPageAction::ManualAddDirectory);
-                })
-        });
-
-        let code_page_widget = CodePageWidget {
-            switch_state: Default::default(),
-            auto_index_switch_state: Default::default(),
-            manual_add_directory_button,
-        };
-
         let workspace_count = PersistedWorkspace::as_ref(ctx).workspaces().count();
 
         #[cfg(feature = "local_fs")]
@@ -289,10 +275,6 @@ impl CodeSettingsPageView {
                 external_editor_view = Some(ctx.add_typed_action_view(ExternalEditorView::new));
             }
 
-            let codebase_indexing_widgets: Vec<Box<dyn SettingsWidget<View = Self>>> =
-                vec![Box::new(CodebaseIndexingCategorizedWidget {
-                    inner: code_page_widget,
-                })];
             #[cfg(feature = "local_fs")]
             let mut code_editor_review_widgets: Vec<
                 Box<dyn SettingsWidget<View = Self>>,
@@ -309,18 +291,26 @@ impl CodeSettingsPageView {
                 Box::new(ProjectExplorerToggleWidget::default()),
                 Box::new(GlobalSearchToggleWidget::default()),
             ]);
-            let categories = vec![
-                Category::new("Codebase Indexing", codebase_indexing_widgets),
-                Category::new("Code Editor and Review", code_editor_review_widgets),
-            ];
+            let categories = vec![Category::new("Code", code_editor_review_widgets)];
             PageType::new_categorized(categories, None)
         } else {
             #[cfg(feature = "local_fs")]
             {
                 external_editor_view = None;
             }
-            let widgets: Vec<Box<dyn SettingsWidget<View = Self>>> =
-                vec![Box::new(code_page_widget)];
+            #[cfg(feature = "local_fs")]
+            let mut widgets: Vec<Box<dyn SettingsWidget<View = Self>>> =
+                vec![Box::new(ExternalEditorCodeWidget)];
+            #[cfg(not(feature = "local_fs"))]
+            let mut widgets: Vec<Box<dyn SettingsWidget<View = Self>>> = vec![];
+            widgets.extend([
+                Box::new(AutoOpenCodeReviewPaneCodeWidget::default())
+                    as Box<dyn SettingsWidget<View = Self>>,
+                Box::new(CodeReviewPanelToggleWidget::default()),
+                Box::new(CodeReviewDiffStatsToggleWidget::default()),
+                Box::new(ProjectExplorerToggleWidget::default()),
+                Box::new(GlobalSearchToggleWidget::default()),
+            ]);
             PageType::new_uncategorized(widgets, None)
         };
 
@@ -397,61 +387,27 @@ impl CodeSettingsPageView {
         }
     }
 
-    /// Builds the full categorized page with all Code widgets.
-    /// Used for the default/legacy view and when resetting to all-widgets mode for search.
-    fn build_full_page(ctx: &mut ViewContext<Self>) -> PageType<Self> {
+    /// Builds the top-level Code page.
+    /// Used for the default view and when resetting page state for search.
+    fn build_full_page(_ctx: &mut ViewContext<Self>) -> PageType<Self> {
+        #[cfg(feature = "local_fs")]
+        let mut widgets: Vec<Box<dyn SettingsWidget<View = Self>>> =
+            vec![Box::new(ExternalEditorCodeWidget)];
+        #[cfg(not(feature = "local_fs"))]
+        let mut widgets: Vec<Box<dyn SettingsWidget<View = Self>>> = vec![];
+        widgets.extend([
+            Box::new(AutoOpenCodeReviewPaneCodeWidget::default())
+                as Box<dyn SettingsWidget<View = Self>>,
+            Box::new(CodeReviewPanelToggleWidget::default()),
+            Box::new(CodeReviewDiffStatsToggleWidget::default()),
+            Box::new(ProjectExplorerToggleWidget::default()),
+            Box::new(GlobalSearchToggleWidget::default()),
+        ]);
+
         if FeatureFlag::OpenWarpNewSettingsModes.is_enabled() {
-            let manual_add_directory_button = ctx.add_typed_action_view(|_| {
-                ActionButton::new("Index new folder", SecondaryTheme)
-                    .with_icon(Icon::FindAll)
-                    .on_click(|ctx| {
-                        ctx.dispatch_typed_action(CodeSettingsPageAction::ManualAddDirectory);
-                    })
-            });
-            let code_page_widget = CodePageWidget {
-                switch_state: Default::default(),
-                auto_index_switch_state: Default::default(),
-                manual_add_directory_button,
-            };
-            let codebase_indexing_widgets: Vec<Box<dyn SettingsWidget<View = Self>>> =
-                vec![Box::new(CodebaseIndexingCategorizedWidget {
-                    inner: code_page_widget,
-                })];
-            #[cfg(feature = "local_fs")]
-            let mut code_editor_review_widgets: Vec<
-                Box<dyn SettingsWidget<View = Self>>,
-            > = vec![Box::new(ExternalEditorCodeWidget)];
-            #[cfg(not(feature = "local_fs"))]
-            let mut code_editor_review_widgets: Vec<
-                Box<dyn SettingsWidget<View = Self>>,
-            > = vec![];
-            code_editor_review_widgets.extend([
-                Box::new(AutoOpenCodeReviewPaneCodeWidget::default())
-                    as Box<dyn SettingsWidget<View = Self>>,
-                Box::new(CodeReviewPanelToggleWidget::default()),
-                Box::new(CodeReviewDiffStatsToggleWidget::default()),
-                Box::new(ProjectExplorerToggleWidget::default()),
-                Box::new(GlobalSearchToggleWidget::default()),
-            ]);
-            let categories = vec![
-                Category::new("Codebase Indexing", codebase_indexing_widgets),
-                Category::new("Code Editor and Review", code_editor_review_widgets),
-            ];
+            let categories = vec![Category::new("Code", widgets)];
             PageType::new_categorized(categories, None)
         } else {
-            let manual_add_directory_button = ctx.add_typed_action_view(|_| {
-                ActionButton::new("Index new folder", SecondaryTheme)
-                    .with_icon(Icon::FindAll)
-                    .on_click(|ctx| {
-                        ctx.dispatch_typed_action(CodeSettingsPageAction::ManualAddDirectory);
-                    })
-            });
-            let widgets: Vec<Box<dyn SettingsWidget<View = Self>>> =
-                vec![Box::new(CodePageWidget {
-                    switch_state: Default::default(),
-                    auto_index_switch_state: Default::default(),
-                    manual_add_directory_button,
-                })];
             PageType::new_uncategorized(widgets, None)
         }
     }

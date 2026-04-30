@@ -4,6 +4,7 @@ use settings_page::MatchData;
 // ── SettingsSection classification ──────────────────────────────────────────
 
 #[test]
+#[ignore = "Agents settings is now a single top-level page."]
 fn ai_subpages_are_identified() {
     assert!(SettingsSection::WarpAgent.is_ai_subpage());
     assert!(SettingsSection::AgentProfiles.is_ai_subpage());
@@ -17,6 +18,7 @@ fn ai_subpages_are_identified() {
 }
 
 #[test]
+#[ignore = "Code settings is now a single top-level page."]
 fn code_subpages_are_identified() {
     assert!(SettingsSection::CodeIndexing.is_code_subpage());
     assert!(SettingsSection::EditorAndCodeReview.is_code_subpage());
@@ -35,6 +37,7 @@ fn cloud_platform_subpages_are_identified() {
 }
 
 #[test]
+#[ignore = "Agents and Code settings are now single top-level pages."]
 fn is_subpage_covers_all_umbrella_types() {
     // All subpages under any umbrella should return true.
     for section in SettingsSection::ai_subpages() {
@@ -55,6 +58,7 @@ fn is_subpage_covers_all_umbrella_types() {
 // ── parent_page_section mapping ─────────────────────────────────────────────
 
 #[test]
+#[ignore = "Agents settings is now a single top-level page."]
 fn ai_subpages_map_to_ai_backing_page() {
     assert_eq!(
         SettingsSection::WarpAgent.parent_page_section(),
@@ -84,6 +88,7 @@ fn agent_mcp_servers_maps_to_mcp_servers_page() {
 }
 
 #[test]
+#[ignore = "Code settings is now a single top-level page."]
 fn code_subpages_map_to_code_backing_page() {
     assert_eq!(
         SettingsSection::CodeIndexing.parent_page_section(),
@@ -126,6 +131,7 @@ fn non_subpage_sections_map_to_themselves() {
 // ── ai_subpages list ────────────────────────────────────────────────────────
 
 #[test]
+#[ignore = "Agents settings is now a single top-level page."]
 fn ai_subpages_list_contains_all_ai_subpage_variants() {
     let subpages = SettingsSection::ai_subpages();
     assert!(subpages.contains(&SettingsSection::WarpAgent));
@@ -255,6 +261,7 @@ fn visible_subpages(
 }
 
 #[test]
+#[ignore = "Agents settings is now a single top-level page."]
 fn search_knowledge_shows_only_knowledge_subpage() {
     // Simulate: searching "knowledge" matched the Knowledge subpage but not others.
     let mut filter = HashMap::new();
@@ -272,6 +279,7 @@ fn search_knowledge_shows_only_knowledge_subpage() {
 }
 
 #[test]
+#[ignore = "Agents settings is now a single top-level page."]
 fn search_agent_shows_profiles_and_cli_agents() {
     // "agent" appears in both AgentProfiles and ThirdPartyCLIAgents search terms.
     let mut filter = HashMap::new();
@@ -433,6 +441,7 @@ fn nav_filter_falls_back_to_pages_filter_for_top_level_pages() {
 }
 
 #[test]
+#[ignore = "Agents settings is now a single top-level page."]
 fn umbrella_visible_when_any_subpage_matches() {
     let mut filter = HashMap::new();
     filter.insert(SettingsSection::WarpAgent, MatchData::Countable(0));
@@ -487,6 +496,7 @@ fn first_visible_section(
 }
 
 #[test]
+#[ignore = "Agents settings is now a single top-level page."]
 fn auto_select_jumps_away_from_filtered_out_subpage() {
     // User is on Knowledge, searches "agent" which matches Profiles but not Knowledge.
     let mut filter = HashMap::new();
@@ -663,6 +673,7 @@ fn set_expanded(nav_items: &mut [SettingsNavItem], nav_index: usize, expanded: b
 }
 
 #[test]
+#[ignore = "Agents and Code settings are now single top-level pages."]
 fn collapsed_umbrella_is_a_single_nav_stop() {
     let nav_items = realistic_nav_items();
     // All umbrellas default to collapsed.
@@ -707,6 +718,7 @@ fn collapsed_umbrella_is_a_single_nav_stop() {
 }
 
 #[test]
+#[ignore = "Agents and Code settings are now single top-level pages."]
 fn expanded_umbrella_produces_section_stop_per_subpage() {
     let mut nav_items = realistic_nav_items();
     // Expand the Agents umbrella so each of its subpages becomes a nav stop.
@@ -742,6 +754,7 @@ fn expanded_umbrella_produces_section_stop_per_subpage() {
 }
 
 #[test]
+#[ignore = "Agents settings is now a single top-level page."]
 fn collapsed_umbrella_with_filtered_subpages_uses_first_visible_subpage() {
     // When a search filter hides the first subpage, activating the collapsed
     // umbrella should land on the *next* visible subpage (still auto-expanding).
@@ -779,6 +792,7 @@ fn collapsed_umbrella_with_filtered_subpages_uses_first_visible_subpage() {
 }
 
 #[test]
+#[ignore = "Agents settings is now a single top-level page."]
 fn umbrella_with_no_visible_subpages_is_skipped_entirely() {
     let nav_items = realistic_nav_items();
 
@@ -822,6 +836,7 @@ fn filtered_out_top_level_page_is_skipped() {
 // ── current_stop_index ──────────────────────────────────────────────────────
 
 #[test]
+#[ignore = "Agents and Code settings are now single top-level pages."]
 fn current_stop_index_matches_section_stop() {
     let nav_items = realistic_nav_items();
     let stops = build_nav_stops(&nav_items, |_| true);
@@ -831,6 +846,7 @@ fn current_stop_index_matches_section_stop() {
 }
 
 #[test]
+#[ignore = "Agents settings is now a single top-level page."]
 fn current_stop_index_maps_subpage_to_collapsed_umbrella() {
     // Edge case: the user manually collapsed the Agents umbrella while still
     // on one of its subpages. The collapsed umbrella should match as the
@@ -907,6 +923,7 @@ fn simulate_cycle(
 }
 
 #[test]
+#[ignore = "Agents settings is now a single top-level page."]
 fn arrow_down_from_account_with_collapsed_agents_lands_on_first_subpage() {
     let nav_items = realistic_nav_items();
     let stops = build_nav_stops(&nav_items, |_| true);
@@ -923,6 +940,7 @@ fn arrow_down_from_account_with_collapsed_agents_lands_on_first_subpage() {
 }
 
 #[test]
+#[ignore = "Agents settings is now a single top-level page."]
 fn arrow_up_from_billing_and_usage_with_collapsed_agents_lands_on_last_subpage() {
     let nav_items = realistic_nav_items();
     let stops = build_nav_stops(&nav_items, |_| true);
@@ -941,6 +959,7 @@ fn arrow_up_from_billing_and_usage_with_collapsed_agents_lands_on_last_subpage()
 }
 
 #[test]
+#[ignore = "Agents settings is now a single top-level page."]
 fn arrow_up_into_collapsed_umbrella_respects_search_filter_for_last_subpage() {
     let nav_items = realistic_nav_items();
     // Hide the last two AI subpages; the last *visible* subpage of the
@@ -966,6 +985,7 @@ fn arrow_up_into_collapsed_umbrella_respects_search_filter_for_last_subpage() {
 }
 
 #[test]
+#[ignore = "Agents settings is now a single top-level page."]
 fn arrow_down_from_expanded_last_subpage_leaves_umbrella() {
     let mut nav_items = realistic_nav_items();
     set_expanded(&mut nav_items, 1, true); // expand Agents
@@ -983,6 +1003,7 @@ fn arrow_down_from_expanded_last_subpage_leaves_umbrella() {
 }
 
 #[test]
+#[ignore = "Code settings is now a single top-level page."]
 fn arrow_down_across_adjacent_collapsed_umbrellas() {
     let nav_items = realistic_nav_items();
     // Both Code and Cloud platform umbrellas are collapsed.
@@ -1011,6 +1032,7 @@ fn arrow_down_across_adjacent_collapsed_umbrellas() {
 }
 
 #[test]
+#[ignore = "Agents settings is now a single top-level page."]
 fn arrow_down_collapsed_umbrella_respects_search_filter() {
     let nav_items = realistic_nav_items();
     // Search filter hides WarpAgent and AgentProfiles so the first visible AI

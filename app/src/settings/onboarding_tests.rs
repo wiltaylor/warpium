@@ -2,6 +2,7 @@ use ai::LLMId;
 use chrono::{DateTime, Utc};
 use onboarding::slides::{AgentAutonomy, AgentDevelopmentSettings, ProjectOnboardingSettings};
 use onboarding::SelectedSettings;
+use settings::Setting as _;
 use warpui::{App, SingletonEntity};
 
 use crate::ai::execution_profiles::profiles::AIExecutionProfilesModel;
@@ -16,7 +17,7 @@ use crate::network::NetworkStatus;
 use crate::server::cloud_objects::update_manager::UpdateManager;
 use crate::server::ids::{ServerId, SyncId};
 use crate::server::sync_queue::SyncQueue;
-use crate::settings::{apply_onboarding_settings, PrivacySettings};
+use crate::settings::{apply_onboarding_settings, AISettings, AgentModeProvider, PrivacySettings};
 use crate::test_util::settings::initialize_settings_for_tests;
 use crate::workspaces::team_tester::TeamTesterStatus;
 use crate::workspaces::user_workspaces::UserWorkspaces;
@@ -121,6 +122,7 @@ fn apply_onboarding_settings_preserves_existing_cloud_profile_on_existing_user_l
                 session_default: onboarding::SessionDefault::Agent,
                 disable_oz: false,
                 show_agent_notifications: true,
+                use_claude_code_provider: false,
             },
             project_settings: ProjectOnboardingSettings::default(),
             ui_customization: None,
@@ -128,6 +130,10 @@ fn apply_onboarding_settings_preserves_existing_cloud_profile_on_existing_user_l
 
         app.update(|ctx| {
             apply_onboarding_settings(&onboarding_settings, ctx);
+            assert_eq!(
+                *AISettings::as_ref(ctx).agent_mode_provider.value(),
+                AgentModeProvider::None
+            );
         });
 
         // Post-condition: the cloud profile retains its stored values.

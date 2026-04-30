@@ -114,6 +114,7 @@ impl AgentOnboardingView {
         skippable: bool,
         models: Vec<OnboardingModelInfo>,
         default_model_id: LLMId,
+        use_claude_code_provider: bool,
         workspace_enforces_autonomy: bool,
         agent_modality_enabled: bool,
         free_user_no_ai_experiment: bool,
@@ -125,6 +126,7 @@ impl AgentOnboardingView {
             OnboardingStateModel::new(
                 models,
                 default_model_id,
+                use_claude_code_provider,
                 workspace_enforces_autonomy,
                 agent_modality_enabled,
                 free_user_no_ai_experiment,

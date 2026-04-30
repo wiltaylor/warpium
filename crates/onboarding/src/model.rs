@@ -159,6 +159,7 @@ impl OnboardingStateModel {
     pub(crate) fn new(
         models: Vec<OnboardingModelInfo>,
         default_model_id: LLMId,
+        use_claude_code_provider: bool,
         workspace_enforces_autonomy: bool,
         agent_modality_enabled: bool,
         free_user_no_ai_experiment: bool,
@@ -168,7 +169,10 @@ impl OnboardingStateModel {
         Self {
             step: OnboardingStep::Intro,
             intention: OnboardingIntention::Terminal,
-            agent_settings: AgentDevelopmentSettings::new(default_model_id),
+            agent_settings: AgentDevelopmentSettings::new(
+                default_model_id,
+                use_claude_code_provider,
+            ),
             project_settings: ProjectOnboardingSettings::default(),
             ui_customization: UICustomizationSettings::terminal_defaults(),
             models,
@@ -222,6 +226,7 @@ impl OnboardingStateModel {
                         cli_agent_toolbar_enabled: self.agent_settings.cli_agent_toolbar_enabled,
                         session_default: self.agent_settings.session_default,
                         disable_oz: self.agent_settings.disable_oz,
+                        use_claude_code_provider: self.agent_settings.use_claude_code_provider,
                         // Agent intention always has notifications enabled (no toggle shown).
                         show_agent_notifications: true,
                     },

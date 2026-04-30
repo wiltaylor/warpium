@@ -56,8 +56,6 @@ pub enum FilterType {
 #[derive(Serialize, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(EnumIter))]
 pub enum AgentManagementTelemetryEvent {
-    /// User toggled the agent management view open or closed
-    ViewToggled { is_open: bool },
     /// User opened the setup guide
     OpenSetupGuide,
     /// User dismissed the setup guide
@@ -130,9 +128,6 @@ impl TelemetryEvent for AgentManagementTelemetryEvent {
 
     fn payload(&self) -> Option<serde_json::Value> {
         match self {
-            AgentManagementTelemetryEvent::ViewToggled { is_open } => {
-                Some(json!({ "is_open": is_open }))
-            }
             AgentManagementTelemetryEvent::OpenSetupGuide => None,
             AgentManagementTelemetryEvent::DismissSetupGuide => None,
             AgentManagementTelemetryEvent::SpawnNewLocalAgent => None,
@@ -228,7 +223,6 @@ impl TelemetryEvent for AgentManagementTelemetryEvent {
 impl TelemetryEventDesc for AgentManagementTelemetryEventDiscriminants {
     fn name(&self) -> &'static str {
         match self {
-            Self::ViewToggled => "AgentManagement.ViewToggled",
             Self::OpenSetupGuide => "AgentManagement.OpenSetupGuide",
             Self::DismissSetupGuide => "AgentManagement.DismissSetupGuide",
             Self::SpawnNewLocalAgent => "AgentManagement.SpawnNewLocalAgent",
@@ -260,7 +254,6 @@ impl TelemetryEventDesc for AgentManagementTelemetryEventDiscriminants {
 
     fn description(&self) -> &'static str {
         match self {
-            Self::ViewToggled => "User toggled the agent management view open or closed",
             Self::OpenSetupGuide => "User opened the ambient agent setup guide",
             Self::DismissSetupGuide => "User dismissed the ambient agent setup guide",
             Self::SpawnNewLocalAgent => "User spawned a new local agent from agent management",

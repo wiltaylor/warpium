@@ -724,6 +724,8 @@ impl settings_value::SettingsValue for ToolbarCommandMap {
 )]
 pub enum AgentModeProvider {
     #[default]
+    #[schemars(description = "Do not use an Agent Mode provider.")]
+    None,
     #[schemars(description = "Use Warp's hosted Agent Mode service.")]
     WarpAi,
     #[schemars(description = "Use the local Claude Code CLI.")]
@@ -743,6 +745,7 @@ settings::macros::implement_setting_for_enum!(
 impl AgentModeProvider {
     pub fn display_name(&self) -> &'static str {
         match self {
+            AgentModeProvider::None => "None",
             AgentModeProvider::WarpAi => "Warp AI",
             AgentModeProvider::ClaudeCode => "Claude Code (local)",
         }
@@ -1549,14 +1552,16 @@ impl AISettings {
         match mode {
             // Terminal and TabConfig don't require AI.
             DefaultSessionMode::Terminal | DefaultSessionMode::TabConfig => mode,
-            // Agent and CloudAgent require AI to be enabled.
-            DefaultSessionMode::Agent | DefaultSessionMode::CloudAgent => {
+            // Agent requires AI to be enabled.
+            DefaultSessionMode::Agent => {
                 if self.is_any_ai_enabled(app) {
                     mode
                 } else {
                     DefaultSessionMode::Terminal
                 }
             }
+            // CloudAgent is no longer exposed as a default mode for new sessions.
+            DefaultSessionMode::CloudAgent => DefaultSessionMode::Terminal,
             // DockerSandbox is gated on its feature flag; fall back to Terminal
             // when disabled so a stale stored value doesn't wedge the user.
             DefaultSessionMode::DockerSandbox => {

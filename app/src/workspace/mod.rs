@@ -85,11 +85,10 @@ pub fn is_feedback_skill_available(ctx: &AppContext) -> bool {
 }
 
 use crate::workspace::view::{
-    LEFT_PANEL_AGENT_CONVERSATIONS_BINDING_NAME, LEFT_PANEL_GLOBAL_SEARCH_BINDING_NAME,
-    LEFT_PANEL_PROJECT_EXPLORER_BINDING_NAME, LEFT_PANEL_WARP_DRIVE_BINDING_NAME,
-    NEW_AGENT_TAB_BINDING_NAME, NEW_AMBIENT_AGENT_TAB_BINDING_NAME, NEW_TAB_BINDING_NAME,
-    NEW_TERMINAL_TAB_BINDING_NAME, OPEN_GLOBAL_SEARCH_BINDING_NAME,
-    TOGGLE_CONVERSATION_LIST_VIEW_BINDING_NAME, TOGGLE_NOTIFICATION_MAILBOX_BINDING_NAME,
+    LEFT_PANEL_GLOBAL_SEARCH_BINDING_NAME, LEFT_PANEL_PROJECT_EXPLORER_BINDING_NAME,
+    LEFT_PANEL_WARP_DRIVE_BINDING_NAME, NEW_AGENT_TAB_BINDING_NAME,
+    NEW_AMBIENT_AGENT_TAB_BINDING_NAME, NEW_TAB_BINDING_NAME, NEW_TERMINAL_TAB_BINDING_NAME,
+    OPEN_GLOBAL_SEARCH_BINDING_NAME, TOGGLE_NOTIFICATION_MAILBOX_BINDING_NAME,
     TOGGLE_PROJECT_EXPLORER_BINDING_NAME, TOGGLE_RIGHT_PANEL_BINDING_NAME,
     TOGGLE_TAB_CONFIGS_MENU_BINDING_NAME, TOGGLE_VERTICAL_TABS_PANEL_BINDING_NAME,
     TOGGLE_WARP_DRIVE_BINDING_NAME,
@@ -736,15 +735,6 @@ pub fn init(app: &mut AppContext) {
         .with_enabled(|| FeatureFlag::VerticalTabs.is_enabled())
         .with_key_binding(cmd_or_ctrl_shift("b")),
         EditableBinding::new(
-            LEFT_PANEL_AGENT_CONVERSATIONS_BINDING_NAME,
-            BindingDescription::new("Left Panel: Agent conversations"),
-            WorkspaceAction::ToggleConversationListView,
-        )
-        .with_group(bindings::BindingGroup::Navigation.as_str())
-        .with_context_predicate(id!("Workspace") & id!(flags::SHOW_CONVERSATION_HISTORY))
-        .with_enabled(|| FeatureFlag::AgentViewConversationListView.is_enabled())
-        .with_custom_action(CustomAction::ToggleConversationListView),
-        EditableBinding::new(
             LEFT_PANEL_PROJECT_EXPLORER_BINDING_NAME,
             BindingDescription::new("Left Panel: Project explorer"),
             WorkspaceAction::ToggleProjectExplorer,
@@ -794,19 +784,6 @@ pub fn init(app: &mut AppContext) {
             WorkspaceAction::ToggleWarpDrive,
         )
         .with_context_predicate(id!("Workspace") & id!(flags::ENABLE_WARP_DRIVE)),
-        EditableBinding::new(
-            TOGGLE_CONVERSATION_LIST_VIEW_BINDING_NAME,
-            BindingDescription::new("Toggle Agent conversation list view").with_custom_description(
-                bindings::MAC_MENUS_CONTEXT,
-                "Agent conversation list view",
-            ),
-            WorkspaceAction::ToggleConversationListView,
-        )
-        .with_enabled(|| FeatureFlag::AgentViewConversationListView.is_enabled())
-        .with_context_predicate(id!("Workspace") & id!(flags::SHOW_CONVERSATION_HISTORY))
-        .with_mac_key_binding("cmd-shift-A")
-        .with_linux_or_windows_key_binding("ctrl-shift-A")
-        .with_group(bindings::BindingGroup::WarpAi.as_str()),
         EditableBinding::new(
             "workspace:close_panel",
             BindingDescription::new("Close focused panel")
@@ -1322,17 +1299,6 @@ pub fn init(app: &mut AppContext) {
 
     add_open_setting_pages_as_editable_binding(app);
     add_overflow_menu_items_as_editable_binding(app);
-
-    app.register_editable_bindings([EditableBinding::new(
-        "workspace:toggle_agent_management_view",
-        "Toggle the agent management view",
-        WorkspaceAction::ToggleAgentManagementView,
-    )
-    .with_enabled(|| FeatureFlag::AgentManagementView.is_enabled())
-    .with_context_predicate(id!("Workspace") & id!(flags::IS_ANY_AI_ENABLED))
-    .with_mac_key_binding("cmd-shift-M")
-    .with_linux_or_windows_key_binding("ctrl-shift-M")
-    .with_group(bindings::BindingGroup::WarpAi.as_str())]);
 }
 
 fn add_open_setting_pages_as_editable_binding(app: &mut AppContext) {
@@ -1404,8 +1370,8 @@ fn add_open_setting_pages_as_editable_binding(app: &mut AppContext) {
         .with_context_predicate(id!("Workspace")),
         EditableBinding::new(
             "workspace:show_ai_settings_page",
-            BindingDescription::new("Open Settings: AI"),
-            WorkspaceAction::ShowSettingsPage(SettingsSection::WarpAgent),
+            BindingDescription::new("Open Settings: Agents"),
+            WorkspaceAction::ShowSettingsPage(SettingsSection::AI),
         )
         .with_enabled(|| FeatureFlag::AgentMode.is_enabled())
         .with_group(bindings::BindingGroup::Settings.as_str())
@@ -1420,7 +1386,7 @@ fn add_open_setting_pages_as_editable_binding(app: &mut AppContext) {
         EditableBinding::new(
             "workspace:show_settings_code_page",
             BindingDescription::new("Open Settings: Code"),
-            WorkspaceAction::ShowSettingsPage(SettingsSection::EditorAndCodeReview),
+            WorkspaceAction::ShowSettingsPage(SettingsSection::Code),
         )
         .with_group(bindings::BindingGroup::Settings.as_str())
         .with_context_predicate(id!("Workspace")),

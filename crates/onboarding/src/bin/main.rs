@@ -112,6 +112,7 @@ impl OnboardingMainView {
                 false,
                 false,
                 false,
+                false,
                 None,
                 onboarding::OnboardingAuthState::LoggedOut,
                 ctx,

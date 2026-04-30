@@ -111,10 +111,12 @@ pub struct AgentDevelopmentSettings {
     pub disable_oz: bool,
     /// Whether agent notifications (mailbox button, toasts, notification items) are shown.
     pub show_agent_notifications: bool,
+    /// Whether onboarding should select the local Claude Code provider.
+    pub use_claude_code_provider: bool,
 }
 
 impl AgentDevelopmentSettings {
-    pub fn new(default_model_id: LLMId) -> Self {
+    pub fn new(default_model_id: LLMId, use_claude_code_provider: bool) -> Self {
         Self {
             selected_model_id: default_model_id,
             autonomy: Some(AgentAutonomy::default()),
@@ -122,6 +124,7 @@ impl AgentDevelopmentSettings {
             session_default: crate::SessionDefault::Agent,
             disable_oz: false,
             show_agent_notifications: true,
+            use_claude_code_provider,
         }
     }
 }
