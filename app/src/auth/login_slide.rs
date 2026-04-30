@@ -122,8 +122,6 @@ pub enum LoginSlideEvent {
 pub enum LoginSlideSource {
     /// Reached via the normal onboarding flow (e.g. agent intention requires an account).
     OnboardingFlow,
-    /// Reached via the "Log in" link on the intro / welcome slide.
-    LoginExistingUserFromWelcome,
     /// Reached via the "Privacy Settings" link on the terminal-intention theme slide.
     /// Starts directly in the privacy settings step and routes Back to onboarding.
     PrivacySettingsFromTerminalIntentionTheme,
@@ -315,7 +313,6 @@ impl LoginSlideView {
             theme_visual_path: resolve_visual_path(intention, theme_name, use_vertical_tabs),
             step: match source {
                 LoginSlideSource::OnboardingFlow => LoginStep::SelectAuthPathway,
-                LoginSlideSource::LoginExistingUserFromWelcome => LoginStep::BrowserOpen,
                 LoginSlideSource::PrivacySettingsFromTerminalIntentionTheme => {
                     LoginStep::PrivacySettings
                 }
@@ -1222,8 +1219,7 @@ impl TypedActionView for LoginSlideView {
                         LoginSlideSource::PrivacySettingsFromTerminalIntentionTheme => {
                             ctx.emit(LoginSlideEvent::BackToOnboarding);
                         }
-                        LoginSlideSource::OnboardingFlow
-                        | LoginSlideSource::LoginExistingUserFromWelcome => {
+                        LoginSlideSource::OnboardingFlow => {
                             self.step = LoginStep::SelectAuthPathway;
                             ctx.focus_self();
                             ctx.notify();
@@ -1235,8 +1231,7 @@ impl TypedActionView for LoginSlideView {
                     // select-auth-pathway step. If this branch is ever reached
                     // for that source, route back to onboarding instead.
                     match self.source {
-                        LoginSlideSource::LoginExistingUserFromWelcome
-                        | LoginSlideSource::PrivacySettingsFromTerminalIntentionTheme => {
+                        LoginSlideSource::PrivacySettingsFromTerminalIntentionTheme => {
                             ctx.emit(LoginSlideEvent::BackToOnboarding);
                         }
                         LoginSlideSource::OnboardingFlow => {
@@ -1254,11 +1249,9 @@ impl TypedActionView for LoginSlideView {
             }
             LoginSlideAction::BackToSelectAuthPathway => match self.source {
                 // PrivacySettingsFromTerminalIntentionTheme only ever shows the
-                // privacy-settings step; treat "back" the same as login-from-
-                // welcome and return to onboarding rather than falling through
-                // to a step this source was designed to skip.
-                LoginSlideSource::LoginExistingUserFromWelcome
-                | LoginSlideSource::PrivacySettingsFromTerminalIntentionTheme => {
+                // privacy-settings step; return to onboarding rather than
+                // falling through to a step this source was designed to skip.
+                LoginSlideSource::PrivacySettingsFromTerminalIntentionTheme => {
                     ctx.emit(LoginSlideEvent::BackToOnboarding);
                 }
                 LoginSlideSource::OnboardingFlow => {
@@ -1302,8 +1295,7 @@ impl TypedActionView for LoginSlideView {
                     LoginSlideSource::PrivacySettingsFromTerminalIntentionTheme => {
                         ctx.emit(LoginSlideEvent::BackToOnboarding);
                     }
-                    LoginSlideSource::OnboardingFlow
-                    | LoginSlideSource::LoginExistingUserFromWelcome => {
+                    LoginSlideSource::OnboardingFlow => {
                         self.step = LoginStep::SelectAuthPathway;
                         ctx.focus_self();
                         ctx.notify();

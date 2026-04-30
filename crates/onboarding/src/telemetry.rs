@@ -41,8 +41,6 @@ pub enum OnboardingEvent {
     FreeUserNoAiUpgradeClicked,
     /// The user clicked the "Upgrade" button on the "Customize your agent" slide.
     AgentSlideUpgradeClicked,
-    /// The user clicked the "Log in" link on the welcome/intro slide.
-    WelcomeLoginClicked,
 }
 
 impl TelemetryEvent for OnboardingEvent {
@@ -64,7 +62,6 @@ impl TelemetryEvent for OnboardingEvent {
                 "onboarding_free_user_no_ai_upgrade_clicked"
             }
             OnboardingEvent::AgentSlideUpgradeClicked => "onboarding_agent_slide_upgrade_clicked",
-            OnboardingEvent::WelcomeLoginClicked => "onboarding_welcome_login_clicked",
         }
     }
 
@@ -103,7 +100,6 @@ impl TelemetryEvent for OnboardingEvent {
             OnboardingEvent::SlideNavigatedBack => None,
             OnboardingEvent::FreeUserNoAiUpgradeClicked => None,
             OnboardingEvent::AgentSlideUpgradeClicked => None,
-            OnboardingEvent::WelcomeLoginClicked => None,
         }
     }
 
@@ -128,9 +124,6 @@ impl TelemetryEvent for OnboardingEvent {
             }
             OnboardingEvent::AgentSlideUpgradeClicked => {
                 "User clicked the Upgrade button on the Customize your agent slide"
-            }
-            OnboardingEvent::WelcomeLoginClicked => {
-                "User clicked the Log in link on the welcome/intro slide"
             }
         }
     }
@@ -171,7 +164,6 @@ impl TelemetryEventDesc for OnboardingEventDiscriminant {
             OnboardingEventDiscriminant::AgentSlideUpgradeClicked => {
                 "onboarding_agent_slide_upgrade_clicked"
             }
-            OnboardingEventDiscriminant::WelcomeLoginClicked => "onboarding_welcome_login_clicked",
         }
     }
 
@@ -202,9 +194,6 @@ impl TelemetryEventDesc for OnboardingEventDiscriminant {
             }
             OnboardingEventDiscriminant::AgentSlideUpgradeClicked => {
                 "User clicked the Upgrade button on the Customize your agent slide"
-            }
-            OnboardingEventDiscriminant::WelcomeLoginClicked => {
-                "User clicked the Log in link on the welcome/intro slide"
             }
         }
     }

@@ -167,10 +167,10 @@ impl OnboardingStateModel {
     ) -> Self {
         Self {
             step: OnboardingStep::Intro,
-            intention: OnboardingIntention::AgentDrivenDevelopment,
+            intention: OnboardingIntention::Terminal,
             agent_settings: AgentDevelopmentSettings::new(default_model_id),
             project_settings: ProjectOnboardingSettings::default(),
-            ui_customization: UICustomizationSettings::agent_defaults(),
+            ui_customization: UICustomizationSettings::terminal_defaults(),
             models,
             workspace_enforces_autonomy,
             agent_modality_enabled,
@@ -670,7 +670,7 @@ impl OnboardingStateModel {
             match self.step {
                 OnboardingStep::Intro => None,
                 OnboardingStep::Intention => Some(OnboardingStep::Intro),
-                OnboardingStep::Customize => Some(OnboardingStep::Intention),
+                OnboardingStep::Customize => Some(OnboardingStep::Intro),
                 OnboardingStep::Agent => Some(OnboardingStep::Customize),
                 OnboardingStep::ThirdParty => match self.intention {
                     OnboardingIntention::Terminal => Some(OnboardingStep::Customize),
@@ -712,7 +712,7 @@ impl OnboardingStateModel {
 
         if theme_picker_last {
             match self.step {
-                OnboardingStep::Intro => self.set_step(OnboardingStep::Intention, ctx),
+                OnboardingStep::Intro => self.set_step(OnboardingStep::Customize, ctx),
                 OnboardingStep::Intention => self.set_step(OnboardingStep::Customize, ctx),
                 OnboardingStep::Customize => match self.intention {
                     OnboardingIntention::Terminal => self.set_step(OnboardingStep::ThirdParty, ctx),
