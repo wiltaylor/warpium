@@ -63,7 +63,7 @@ use crate::terminal::view::inline_banner::ZeroStatePromptSuggestionType;
 use crate::terminal::{
     model::session::{active_session::ActiveSession, SessionType},
     model::terminal_model::TerminalModel,
-    ShellLaunchData,
+    CLIAgent, ShellLaunchData,
 };
 use crate::workspaces::update_manager::TeamUpdateManager;
 use crate::workspaces::user_workspaces::UserWorkspaces;
@@ -2140,7 +2140,35 @@ impl BlocklistAIController {
         if input_contains_user_query {
             match *AISettings::as_ref(ctx).agent_mode_provider.value() {
                 AgentModeProvider::ClaudeCode => {
-                    return self.send_local_claude_request_input(
+                    return self.send_local_cli_agent_request_input(
+                        CLIAgent::Claude,
+                        request_input,
+                        query_metadata,
+                        is_queued_prompt,
+                        ctx,
+                    );
+                }
+                AgentModeProvider::Codex => {
+                    return self.send_local_cli_agent_request_input(
+                        CLIAgent::Codex,
+                        request_input,
+                        query_metadata,
+                        is_queued_prompt,
+                        ctx,
+                    );
+                }
+                AgentModeProvider::Gemini => {
+                    return self.send_local_cli_agent_request_input(
+                        CLIAgent::Gemini,
+                        request_input,
+                        query_metadata,
+                        is_queued_prompt,
+                        ctx,
+                    );
+                }
+                AgentModeProvider::Copilot => {
+                    return self.send_local_cli_agent_request_input(
+                        CLIAgent::Copilot,
                         request_input,
                         query_metadata,
                         is_queued_prompt,
@@ -2327,8 +2355,9 @@ impl BlocklistAIController {
         Ok((conversation_data.id, response_stream_id))
     }
 
-    fn send_local_claude_request_input(
+    fn send_local_cli_agent_request_input(
         &mut self,
+        agent: CLIAgent,
         request_input: RequestInput,
         query_metadata: Option<RequestMetadata>,
         is_queued_prompt: bool,
@@ -2394,7 +2423,8 @@ impl BlocklistAIController {
             {
                 let stream_id = response_stream_id.clone();
                 move |me, event, ctx| {
-                    me.handle_local_claude_stream_event(
+                    me.handle_local_cli_agent_stream_event(
+                        agent,
                         conversation_id,
                         stream_id.clone(),
                         event,
@@ -2405,7 +2435,13 @@ impl BlocklistAIController {
             |_, _| {},
         );
         ctx.spawn(
-            local_claude::run_claude_stream(prompt, working_directory, resume_session_id, tx),
+            local_claude::run_claude_stream(
+                agent,
+                prompt,
+                working_directory,
+                resume_session_id,
+                tx,
+            ),
             |_, _, _| {},
         );
 
@@ -2450,8 +2486,9 @@ impl BlocklistAIController {
         Ok((conversation_id, response_stream_id))
     }
 
-    fn handle_local_claude_stream_event(
+    fn handle_local_cli_agent_stream_event(
         &mut self,
+        agent: CLIAgent,
         conversation_id: AIConversationId,
         stream_id: ResponseStreamId,
         event: local_claude::LocalClaudeStreamEvent,
@@ -2532,7 +2569,10 @@ impl BlocklistAIController {
                     if is_error {
                         history_model.mark_response_stream_completed_with_error(
                             RenderableAIError::Other {
-                                error_message: "Claude Code returned an error".to_string(),
+                                error_message: format!(
+                                    "{} returned an error",
+                                    agent.display_name()
+                                ),
                                 will_attempt_resume: false,
                                 waiting_for_network: false,
                             },

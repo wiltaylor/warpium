@@ -5363,8 +5363,7 @@ impl SettingsWidget for CLIAgentWidget {
         let provider_description = appearance
             .ui_builder()
             .wrappable_text(
-                "Choose whether integrated Agent Mode uses a local Claude Code CLI session."
-                    .to_string(),
+                "Choose whether integrated Agent Mode uses a local CLI agent.".to_string(),
                 true,
             )
             .with_style(UiComponentStyles {

@@ -730,6 +730,12 @@ pub enum AgentModeProvider {
     WarpAi,
     #[schemars(description = "Use the local Claude Code CLI.")]
     ClaudeCode,
+    #[schemars(description = "Use the local Codex CLI.")]
+    Codex,
+    #[schemars(description = "Use the local Gemini CLI.")]
+    Gemini,
+    #[schemars(description = "Use the local GitHub Copilot CLI.")]
+    Copilot,
 }
 
 settings::macros::implement_setting_for_enum!(
@@ -748,7 +754,20 @@ impl AgentModeProvider {
             AgentModeProvider::None => "None",
             AgentModeProvider::WarpAi => "Warp AI",
             AgentModeProvider::ClaudeCode => "Claude Code (local)",
+            AgentModeProvider::Codex => "Codex CLI (local)",
+            AgentModeProvider::Gemini => "Gemini CLI (local)",
+            AgentModeProvider::Copilot => "GitHub Copilot CLI (local)",
         }
+    }
+
+    pub fn is_local_cli_provider(&self) -> bool {
+        matches!(
+            self,
+            AgentModeProvider::ClaudeCode
+                | AgentModeProvider::Codex
+                | AgentModeProvider::Gemini
+                | AgentModeProvider::Copilot
+        )
     }
 }
 

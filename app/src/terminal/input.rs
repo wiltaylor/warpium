@@ -186,9 +186,9 @@ use crate::{
     },
     session_management::SessionNavigationPromptElements,
     settings::{
-        AISettings, AISettingsChangedEvent, AgentModeProvider, AliasExpansionSettings,
-        AppEditorSettings, AppEditorSettingsChangedEvent, InputModeSettings, InputSettings,
-        InputSettingsChangedEvent, MAX_TIMES_TO_SHOW_AUTOSUGGESTION_HINT,
+        AISettings, AISettingsChangedEvent, AliasExpansionSettings, AppEditorSettings,
+        AppEditorSettingsChangedEvent, InputModeSettings, InputSettings, InputSettingsChangedEvent,
+        MAX_TIMES_TO_SHOW_AUTOSUGGESTION_HINT,
     },
     settings_view::{flags, SettingsSection},
     terminal::view::inline_banner::{PromptSuggestionsEvent, PromptSuggestionsView},
@@ -12568,8 +12568,10 @@ impl Input {
             return;
         }
 
-        let is_local_agent_provider =
-            *AISettings::as_ref(ctx).agent_mode_provider.value() == AgentModeProvider::ClaudeCode;
+        let is_local_agent_provider = AISettings::as_ref(ctx)
+            .agent_mode_provider
+            .value()
+            .is_local_cli_provider();
 
         let has_requests_remaining = AIRequestUsageModel::as_ref(ctx).has_requests_remaining();
 

@@ -3,9 +3,11 @@ use std::process::Stdio;
 
 use anyhow::{anyhow, Context as _};
 use command::r#async::Command;
-use futures_lite::io::{AsyncBufReadExt, BufReader};
+use futures_lite::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use futures_lite::StreamExt;
 use serde_json::Value;
+
+use crate::terminal::CLIAgent;
 
 #[derive(Debug, Clone)]
 pub enum LocalClaudeStreamEvent {
@@ -30,13 +32,35 @@ pub enum LocalClaudeStreamEvent {
     Error(String),
 }
 
+impl LocalClaudeStreamEvent {
+    fn finished_success() -> Self {
+        Self::Finished {
+            session_id: None,
+            result: None,
+            is_error: false,
+            cost_usd: None,
+        }
+    }
+}
+
 pub async fn run_claude_stream(
+    agent: CLIAgent,
     prompt: String,
     working_directory: Option<String>,
     session_id: Option<String>,
     tx: async_channel::Sender<LocalClaudeStreamEvent>,
 ) {
-    if let Err(error) = run_claude_stream_inner(prompt, working_directory, session_id, &tx).await {
+    let result = match agent {
+        CLIAgent::Claude => {
+            run_claude_stream_inner(prompt, working_directory, session_id, &tx).await
+        }
+        CLIAgent::Codex | CLIAgent::Gemini | CLIAgent::Copilot => {
+            run_plain_text_cli_stream(agent, prompt, working_directory, &tx).await
+        }
+        _ => Err(anyhow!("Unsupported local Agent Mode provider: {agent:?}")),
+    };
+
+    if let Err(error) = result {
         let _ = tx
             .send(LocalClaudeStreamEvent::Error(error.to_string()))
             .await;
@@ -113,6 +137,99 @@ async fn run_claude_stream_inner(
             })
             .await;
     }
+    Ok(())
+}
+
+async fn run_plain_text_cli_stream(
+    agent: CLIAgent,
+    prompt: String,
+    working_directory: Option<String>,
+    tx: &async_channel::Sender<LocalClaudeStreamEvent>,
+) -> anyhow::Result<()> {
+    let mut command = match agent {
+        CLIAgent::Codex => {
+            let mut command = Command::new("codex");
+            command
+                .arg("exec")
+                .arg("--dangerously-bypass-approvals-and-sandbox")
+                .arg(prompt);
+            command
+        }
+        CLIAgent::Gemini => {
+            let mut command = Command::new("gemini");
+            command
+                .arg("--prompt")
+                .arg(prompt)
+                .arg("--yolo")
+                .arg("--output-format")
+                .arg("text");
+            command
+        }
+        CLIAgent::Copilot => {
+            let mut command = Command::new("copilot");
+            command
+                .arg("--prompt")
+                .arg(prompt)
+                .arg("--allow-all")
+                .arg("--output-format")
+                .arg("text")
+                .arg("--silent");
+            command
+        }
+        _ => return Err(anyhow!("Unsupported plain-text CLI agent: {agent:?}")),
+    };
+
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+
+    if let Some(working_directory) = working_directory {
+        command.current_dir(PathBuf::from(working_directory));
+    }
+
+    let display_name = agent.display_name();
+    let mut child = command.spawn().with_context(|| {
+        format!(
+            "Failed to start {display_name}. Ensure `{}` is installed and on PATH.",
+            agent.command_prefix()
+        )
+    })?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| anyhow!("{display_name} stdout was not available"))?;
+    let mut stderr = child.stderr.take();
+    let mut lines = BufReader::new(stdout).lines();
+    let mut output = String::new();
+
+    while let Some(line) = lines.next().await.transpose()? {
+        if !output.is_empty() {
+            output.push('\n');
+        }
+        output.push_str(&line);
+        let _ = tx
+            .send(LocalClaudeStreamEvent::AssistantText(output.clone()))
+            .await;
+    }
+
+    let status = child.status().await?;
+    if !status.success() {
+        let mut stderr_text = String::new();
+        if let Some(stderr) = stderr.as_mut() {
+            let _ = stderr.read_to_string(&mut stderr_text).await;
+        }
+        let stderr_text = stderr_text.trim();
+        if stderr_text.is_empty() {
+            return Err(anyhow!("{display_name} exited with status {status}"));
+        }
+        return Err(anyhow!(
+            "{display_name} exited with status {status}: {stderr_text}"
+        ));
+    }
+
+    let _ = tx.send(LocalClaudeStreamEvent::finished_success()).await;
     Ok(())
 }
 

@@ -30,6 +30,29 @@ fn create_test_request_limit_info(
     }
 }
 
+#[test]
+fn test_agent_mode_provider_local_cli_detection() {
+    assert!(!AgentModeProvider::None.is_local_cli_provider());
+    assert!(!AgentModeProvider::WarpAi.is_local_cli_provider());
+    assert!(AgentModeProvider::ClaudeCode.is_local_cli_provider());
+    assert!(AgentModeProvider::Codex.is_local_cli_provider());
+    assert!(AgentModeProvider::Gemini.is_local_cli_provider());
+    assert!(AgentModeProvider::Copilot.is_local_cli_provider());
+}
+
+#[test]
+fn test_agent_mode_provider_display_names() {
+    assert_eq!(AgentModeProvider::Codex.display_name(), "Codex CLI (local)");
+    assert_eq!(
+        AgentModeProvider::Gemini.display_name(),
+        "Gemini CLI (local)"
+    );
+    assert_eq!(
+        AgentModeProvider::Copilot.display_name(),
+        "GitHub Copilot CLI (local)"
+    );
+}
+
 // FocusedTerminalInfo Tests
 
 #[test]
