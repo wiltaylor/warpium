@@ -259,8 +259,8 @@ use crate::server::telemetry::SharingDialogSource;
 use crate::settings::import::model::ImportedConfigModel;
 use crate::settings::import::view::{SettingsImportEvent, SettingsImportView};
 use crate::settings::{
-    AISettings, AISettingsChangedEvent, AliasExpansionSettings, AppEditorSettings,
-    BlockVisibilitySettings, BlockVisibilitySettingsChangedEvent, DebugSettings,
+    AISettings, AISettingsChangedEvent, AgentModeProvider, AliasExpansionSettings,
+    AppEditorSettings, BlockVisibilitySettings, BlockVisibilitySettingsChangedEvent, DebugSettings,
     DebugSettingsChangedEvent, EmacsBindingsSettings, FontSettings, FontSettingsChangedEvent,
     InputModeSettings, InputModeSettingsChangedEvent, InputSettings, PaneSettings,
     PaneSettingsChangedEvent, SelectionSettings, VimBannerSettings,
@@ -11935,6 +11935,7 @@ impl TerminalView {
         self.hide_slow_bootstrap_banner(ctx);
 
         if self.auth_state.is_anonymous_or_logged_out()
+            && *AISettings::as_ref(ctx).agent_mode_provider.value() != AgentModeProvider::ClaudeCode
             && !FeatureFlag::OpenWarpNewSettingsModes.is_enabled()
         {
             self.insert_anonymous_user_ai_sign_up_banner(ctx);

@@ -4,6 +4,7 @@
 //! The `BlocklistAIController` orchestrates state updates and service calls to power the
 //! Agent Mode UI.
 pub mod input_context;
+mod local_claude;
 mod pending_response_streams;
 pub mod response_stream;
 pub(super) mod shared_session;
@@ -38,8 +39,9 @@ use crate::ai::llms::LLMId;
 use crate::ai::{
     agent::{
         conversation::AIConversationId, AIAgentActionResultType, AIAgentAttachment, AIAgentContext,
-        AIAgentExchangeId, AIAgentInput, AIAgentOutputStatus, AIIdentifiers, EntrypointType,
-        FinishedAIAgentOutput, RenderableAIError, RequestCost, RequestMetadata, StaticQueryType,
+        AIAgentExchangeId, AIAgentInput, AIAgentOutputMessage, AIAgentOutputStatus, AIAgentText,
+        AIAgentTextSection, AIIdentifiers, EntrypointType, FinishedAIAgentOutput, MessageId,
+        ProgrammingLanguage, RenderableAIError, RequestCost, RequestMetadata, StaticQueryType,
         UserQueryMode,
     },
     llms::LLMPreferences,
@@ -53,6 +55,7 @@ use crate::notebooks::editor::model::FileLinkResolutionContext;
 use crate::persistence::ModelEvent;
 use crate::search::slash_command_menu::static_commands::commands;
 use crate::server::server_api::AIApiError;
+use crate::settings::{AISettings, AgentModeProvider};
 use crate::terminal::model::block::{
     formatted_terminal_contents_for_input, BlockId, CURSOR_MARKER,
 };
@@ -71,6 +74,7 @@ use itertools::Itertools;
 use parking_lot::FairMutex;
 use pending_response_streams::PendingResponseStreams;
 use session_sharing_protocol::common::ParticipantId;
+use settings::Setting;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
@@ -293,6 +297,9 @@ pub struct BlocklistAIController {
     terminal_model: Arc<FairMutex<TerminalModel>>,
 
     in_flight_response_streams: PendingResponseStreams,
+    in_flight_local_claude_streams: HashSet<AIConversationId>,
+    local_claude_session_ids: HashMap<AIConversationId, String>,
+    local_claude_render_states: HashMap<ResponseStreamId, LocalClaudeRenderState>,
 
     /// The ID of the terminal view this controller is associated with.
     terminal_view_id: EntityId,
@@ -347,6 +354,128 @@ enum WhichTask {
     },
 }
 
+#[derive(Default)]
+struct LocalClaudeRenderState {
+    assistant_text: String,
+    tool_call_keys: HashSet<String>,
+    tool_result_keys: HashSet<String>,
+    tool_messages: Vec<LocalClaudeToolMessage>,
+    request_cost: Option<RequestCost>,
+}
+
+#[derive(Clone)]
+enum LocalClaudeToolMessage {
+    ToolUse {
+        key: String,
+        name: String,
+        command: Option<String>,
+        input: serde_json::Value,
+    },
+    ToolResult {
+        key: String,
+        content: String,
+        is_error: bool,
+    },
+}
+
+impl LocalClaudeRenderState {
+    fn messages(&self, stream_id: &ResponseStreamId) -> Vec<AIAgentOutputMessage> {
+        let mut messages = Vec::new();
+        messages.extend(
+            self.tool_messages
+                .iter()
+                .map(|message| message.to_output_message(stream_id)),
+        );
+        if !self.assistant_text.is_empty() {
+            messages.push(AIAgentOutputMessage::text(
+                MessageId::new(format!("local-claude-{}-text", stream_id.as_ref())),
+                AIAgentText {
+                    sections: vec![AIAgentTextSection::PlainText {
+                        text: self.assistant_text.clone().into(),
+                    }],
+                },
+            ));
+        }
+        messages
+    }
+}
+
+impl LocalClaudeToolMessage {
+    fn to_output_message(&self, stream_id: &ResponseStreamId) -> AIAgentOutputMessage {
+        match self {
+            LocalClaudeToolMessage::ToolUse {
+                key,
+                name,
+                command,
+                input,
+            } => AIAgentOutputMessage::text(
+                MessageId::new(format!("local-claude-{}-tool-{key}", stream_id.as_ref())),
+                AIAgentText {
+                    sections: tool_use_sections(name, command.as_deref(), input),
+                },
+            ),
+            LocalClaudeToolMessage::ToolResult {
+                key,
+                content,
+                is_error,
+            } => AIAgentOutputMessage::text(
+                MessageId::new(format!(
+                    "local-claude-{}-tool-result-{key}",
+                    stream_id.as_ref()
+                )),
+                AIAgentText {
+                    sections: vec![
+                        AIAgentTextSection::PlainText {
+                            text: if *is_error {
+                                "Tool errored".to_string().into()
+                            } else {
+                                "Tool result".to_string().into()
+                            },
+                        },
+                        AIAgentTextSection::Code {
+                            code: content.clone(),
+                            language: None,
+                            source: None,
+                        },
+                    ],
+                },
+            ),
+        }
+    }
+}
+
+fn tool_use_sections(
+    name: &str,
+    command: Option<&str>,
+    input: &serde_json::Value,
+) -> Vec<AIAgentTextSection> {
+    if let Some(command) = command {
+        return vec![
+            AIAgentTextSection::PlainText {
+                text: format!("Running command with {name}").into(),
+            },
+            AIAgentTextSection::Code {
+                code: command.to_string(),
+                language: Some(ProgrammingLanguage::Shell(
+                    crate::terminal::shell::ShellType::Bash,
+                )),
+                source: None,
+            },
+        ];
+    }
+
+    vec![
+        AIAgentTextSection::PlainText {
+            text: format!("Calling tool: {name}").into(),
+        },
+        AIAgentTextSection::Code {
+            code: serde_json::to_string_pretty(input).unwrap_or_else(|_| input.to_string()),
+            language: Some(ProgrammingLanguage::Other("json".to_string())),
+            source: None,
+        },
+    ]
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FollowUpTrigger {
     Auto,
@@ -368,6 +497,34 @@ impl InputQuery {
             InputQueryType::AIInputType { ai_input } => ai_input.user_query().unwrap_or_default(),
         }
     }
+}
+
+fn prompt_for_local_claude(request_input: &RequestInput) -> Option<String> {
+    let mut prompt_parts = Vec::new();
+    for input in request_input.all_inputs() {
+        let Some(query) = input.user_query() else {
+            continue;
+        };
+        prompt_parts.push(query);
+
+        if let Some(context) = input.context().filter(|context| !context.is_empty()) {
+            if let Ok(serialized) = serde_json::to_string_pretty(context) {
+                prompt_parts.push(format!("<warp_context>\n{serialized}\n</warp_context>"));
+            }
+        }
+
+        if let Some(attachments) = input
+            .attachments()
+            .filter(|attachments| !attachments.is_empty())
+        {
+            if let Ok(serialized) = serde_json::to_string_pretty(&attachments) {
+                prompt_parts.push(format!(
+                    "<warp_attachments>\n{serialized}\n</warp_attachments>"
+                ));
+            }
+        }
+    }
+    (!prompt_parts.is_empty()).then(|| prompt_parts.join("\n\n"))
 }
 
 impl BlocklistAIController {
@@ -545,6 +702,9 @@ impl BlocklistAIController {
             active_session,
             terminal_model,
             in_flight_response_streams: PendingResponseStreams::new(),
+            in_flight_local_claude_streams: HashSet::new(),
+            local_claude_session_ids: HashMap::new(),
+            local_claude_render_states: HashMap::new(),
             terminal_view_id,
             should_refresh_available_llms_on_stream_finish: false,
             shared_session_state: shared_session::SharedSessionState::default(),
@@ -1707,8 +1867,8 @@ impl BlocklistAIController {
         {
             let Some(conversation) = history_model.conversation(&conversation_id) else {
                 return Err(anyhow!(
-                        "Tried to build passive suggestions request params for non-existent conversation with ID {conversation_id:?}"
-                    ));
+                    "Tried to build passive suggestions request params for non-existent conversation with ID {conversation_id:?}"
+                ));
             };
             let task_id = conversation.get_root_task_id().clone();
             let conversation_data = api::ConversationData {
@@ -1740,8 +1900,8 @@ impl BlocklistAIController {
             (conversation_id, task_id, conversation_data)
         } else {
             return Err(anyhow!(
-                    "Tried to use agent response completed trigger to generate passive suggestions without a conversation ID"
-                ));
+                "Tried to use agent response completed trigger to generate passive suggestions without a conversation ID"
+            ));
         };
 
         let inputs = vec![AIAgentInput::TriggerPassiveSuggestion {
@@ -1938,6 +2098,10 @@ impl BlocklistAIController {
             handle.abort();
         }
 
+        let input_contains_user_query = request_input
+            .all_inputs()
+            .any(|input| input.is_user_query());
+
         // Make sure there's no existing response stream for the conversation. If
         // there is, something has gone wrong.
         if self
@@ -1961,6 +2125,27 @@ impl BlocklistAIController {
                 "Not sending AI input because there is an in-flight request";
             safe_assert!(false, "{}", AI_INPUT_NOT_SENT_ERROR_STR);
             return Err(anyhow::anyhow!(AI_INPUT_NOT_SENT_ERROR_STR));
+        }
+
+        if self
+            .in_flight_local_claude_streams
+            .contains(&conversation_id)
+        {
+            const AI_INPUT_NOT_SENT_ERROR_STR: &str =
+                "Not sending AI input because there is an in-flight local Claude request";
+            safe_assert!(false, "{}", AI_INPUT_NOT_SENT_ERROR_STR);
+            return Err(anyhow::anyhow!(AI_INPUT_NOT_SENT_ERROR_STR));
+        }
+
+        if input_contains_user_query
+            && *AISettings::as_ref(ctx).agent_mode_provider.value() == AgentModeProvider::ClaudeCode
+        {
+            return self.send_local_claude_request_input(
+                request_input,
+                query_metadata,
+                is_queued_prompt,
+                ctx,
+            );
         }
 
         let conversation_data = api::ConversationData {
@@ -2014,9 +2199,6 @@ impl BlocklistAIController {
         });
         let response_stream_id = response_stream.as_ref(ctx).id().clone();
         let response_stream_clone = response_stream.clone();
-        let input_contains_user_query = request_input
-            .all_inputs()
-            .any(|input| input.is_user_query());
         ctx.subscribe_to_model(&response_stream, move |me, event, ctx| {
             me.handle_response_stream_event(
                 input_contains_user_query,
@@ -2138,6 +2320,278 @@ impl BlocklistAIController {
         }
 
         Ok((conversation_data.id, response_stream_id))
+    }
+
+    fn send_local_claude_request_input(
+        &mut self,
+        request_input: RequestInput,
+        query_metadata: Option<RequestMetadata>,
+        is_queued_prompt: bool,
+        ctx: &mut ModelContext<Self>,
+    ) -> anyhow::Result<(AIConversationId, ResponseStreamId)> {
+        let conversation_id = request_input.conversation_id;
+        let model_id = request_input.model_id.clone();
+        let response_stream_id = ResponseStreamId::new_local();
+        let prompt = prompt_for_local_claude(&request_input)
+            .ok_or_else(|| anyhow!("Local Claude provider only supports user query inputs"))?;
+        let working_directory = request_input.working_directory.clone();
+        let resume_session_id = self.local_claude_session_ids.get(&conversation_id).cloned();
+        let input_contains_user_query = request_input
+            .all_inputs()
+            .any(|input| input.is_user_query());
+        let is_passive_request = request_input
+            .all_inputs()
+            .any(|input| input.is_passive_request());
+
+        for input in request_input.all_inputs() {
+            if let AIAgentInput::UserQuery {
+                referenced_attachments,
+                ..
+            } = input
+            {
+                self.maybe_populate_plans_for_ai_document_model(
+                    referenced_attachments,
+                    conversation_id,
+                    ctx,
+                );
+            }
+        }
+
+        BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| match history_model
+            .update_conversation_for_new_request_input(
+                request_input,
+                response_stream_id.clone(),
+                self.terminal_view_id,
+                ctx,
+            ) {
+            Ok(_) => {
+                history_model.update_conversation_status(
+                    self.terminal_view_id,
+                    conversation_id,
+                    ConversationStatus::InProgress,
+                    ctx,
+                );
+            }
+            Err(e) => {
+                log::warn!("Failed to push new exchange to AI conversation: {e:?}");
+            }
+        });
+
+        self.in_flight_local_claude_streams.insert(conversation_id);
+        self.local_claude_render_states.insert(
+            response_stream_id.clone(),
+            LocalClaudeRenderState::default(),
+        );
+
+        let (tx, rx) = async_channel::unbounded();
+        ctx.spawn_stream_local(
+            rx,
+            {
+                let stream_id = response_stream_id.clone();
+                move |me, event, ctx| {
+                    me.handle_local_claude_stream_event(
+                        conversation_id,
+                        stream_id.clone(),
+                        event,
+                        ctx,
+                    );
+                }
+            },
+            |_, _| {},
+        );
+        ctx.spawn(
+            local_claude::run_claude_stream(prompt, working_directory, resume_session_id, tx),
+            |_, _, _| {},
+        );
+
+        if input_contains_user_query {
+            let pending_document_id = self.context_model.as_ref(ctx).pending_document_id();
+            self.context_model.update(ctx, |context_model, ctx| {
+                context_model.reset_context_to_default(ctx);
+            });
+            if let Some(doc_id) = pending_document_id {
+                AIDocumentModel::handle(ctx).update(ctx, |model, mctx| {
+                    model.set_user_edit_status(&doc_id, AIDocumentUserEditStatus::UpToDate, mctx);
+                });
+            }
+        }
+
+        ctx.emit(BlocklistAIControllerEvent::SentRequest {
+            contains_user_query: input_contains_user_query,
+            is_queued_prompt,
+            model_id,
+            stream_id: response_stream_id.clone(),
+        });
+        if !is_passive_request {
+            BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
+                history_model.set_active_conversation_id(
+                    conversation_id,
+                    self.terminal_view_id,
+                    ctx,
+                )
+            });
+        }
+        if input_contains_user_query {
+            ctx.dispatch_global_action("workspace:save_app", ());
+        }
+
+        if let Some(metadata) = query_metadata {
+            log::debug!(
+                "Sent local Claude Agent Mode request from {:?}",
+                metadata.entrypoint
+            );
+        }
+
+        Ok((conversation_id, response_stream_id))
+    }
+
+    fn handle_local_claude_stream_event(
+        &mut self,
+        conversation_id: AIConversationId,
+        stream_id: ResponseStreamId,
+        event: local_claude::LocalClaudeStreamEvent,
+        ctx: &mut ModelContext<Self>,
+    ) {
+        match event {
+            local_claude::LocalClaudeStreamEvent::SessionId(session_id) => {
+                self.local_claude_session_ids
+                    .insert(conversation_id, session_id);
+            }
+            local_claude::LocalClaudeStreamEvent::AssistantText(text) => {
+                let state = self
+                    .local_claude_render_states
+                    .entry(stream_id.clone())
+                    .or_default();
+                state.assistant_text = text;
+                self.update_local_claude_history(conversation_id, &stream_id, ctx);
+            }
+            local_claude::LocalClaudeStreamEvent::ToolUse { id, name, input } => {
+                let state = self
+                    .local_claude_render_states
+                    .entry(stream_id.clone())
+                    .or_default();
+                let key = id.clone().unwrap_or_else(|| format!("{name}:{input}"));
+                if state.tool_call_keys.insert(key.clone()) {
+                    let command = input
+                        .get("command")
+                        .and_then(serde_json::Value::as_str)
+                        .map(str::to_owned);
+                    state.tool_messages.push(LocalClaudeToolMessage::ToolUse {
+                        key,
+                        name,
+                        command,
+                        input,
+                    });
+                    self.update_local_claude_history(conversation_id, &stream_id, ctx);
+                }
+            }
+            local_claude::LocalClaudeStreamEvent::ToolResult {
+                id,
+                content,
+                is_error,
+            } => {
+                let state = self
+                    .local_claude_render_states
+                    .entry(stream_id.clone())
+                    .or_default();
+                let key = id.unwrap_or_else(|| format!("result-{}", state.tool_messages.len()));
+                if state.tool_result_keys.insert(key.clone()) {
+                    state
+                        .tool_messages
+                        .push(LocalClaudeToolMessage::ToolResult {
+                            key,
+                            content,
+                            is_error,
+                        });
+                    self.update_local_claude_history(conversation_id, &stream_id, ctx);
+                }
+            }
+            local_claude::LocalClaudeStreamEvent::Finished {
+                session_id,
+                result,
+                is_error,
+                cost_usd,
+            } => {
+                if let Some(session_id) = session_id {
+                    self.local_claude_session_ids
+                        .insert(conversation_id, session_id);
+                }
+                if let Some(state) = self.local_claude_render_states.get_mut(&stream_id) {
+                    if let Some(result) = result.filter(|result| !result.is_empty()) {
+                        state.assistant_text = result;
+                    }
+                    state.request_cost = cost_usd.map(RequestCost::new);
+                }
+                self.update_local_claude_history(conversation_id, &stream_id, ctx);
+                BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
+                    if is_error {
+                        history_model.mark_response_stream_completed_with_error(
+                            RenderableAIError::Other {
+                                error_message: "Claude Code returned an error".to_string(),
+                                will_attempt_resume: false,
+                                waiting_for_network: false,
+                            },
+                            &stream_id,
+                            conversation_id,
+                            self.terminal_view_id,
+                            ctx,
+                        );
+                    } else {
+                        history_model.mark_response_stream_completed_successfully(
+                            &stream_id,
+                            conversation_id,
+                            self.terminal_view_id,
+                            ctx,
+                        );
+                    }
+                });
+                self.in_flight_local_claude_streams.remove(&conversation_id);
+                self.local_claude_render_states.remove(&stream_id);
+            }
+            local_claude::LocalClaudeStreamEvent::Error(error) => {
+                if let Some(state) = self.local_claude_render_states.get_mut(&stream_id) {
+                    state.assistant_text = error.clone();
+                }
+                self.update_local_claude_history(conversation_id, &stream_id, ctx);
+                BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
+                    history_model.mark_response_stream_completed_with_error(
+                        RenderableAIError::Other {
+                            error_message: error,
+                            will_attempt_resume: false,
+                            waiting_for_network: false,
+                        },
+                        &stream_id,
+                        conversation_id,
+                        self.terminal_view_id,
+                        ctx,
+                    );
+                });
+                self.in_flight_local_claude_streams.remove(&conversation_id);
+                self.local_claude_render_states.remove(&stream_id);
+            }
+        }
+    }
+
+    fn update_local_claude_history(
+        &self,
+        conversation_id: AIConversationId,
+        stream_id: &ResponseStreamId,
+        ctx: &mut ModelContext<Self>,
+    ) {
+        if let Some(state) = self.local_claude_render_states.get(stream_id) {
+            let messages = state.messages(stream_id);
+            let request_cost = state.request_cost;
+            BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
+                history_model.update_output_for_local_stream(
+                    stream_id,
+                    conversation_id,
+                    self.terminal_view_id,
+                    messages,
+                    request_cost,
+                    ctx,
+                );
+            });
+        }
     }
 
     /// Cancels a pending AI request response stream, given the exchange ID, if it exists.

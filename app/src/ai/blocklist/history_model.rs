@@ -39,8 +39,8 @@ use crate::GlobalResourceHandlesProvider;
 use crate::{
     ai::agent::{
         conversation::{AIConversation, AIConversationId},
-        AIAgentActionId, AIAgentExchange, AIAgentInput, AIAgentOutputStatus, FinishedAIAgentOutput,
-        MessageId, RenderableAIError, RequestCost, Suggestions,
+        AIAgentActionId, AIAgentExchange, AIAgentInput, AIAgentOutputMessage, AIAgentOutputStatus,
+        FinishedAIAgentOutput, MessageId, RenderableAIError, RequestCost, Suggestions,
     },
     persistence::model::AgentConversation,
     ui_components::icons::Icon,
@@ -896,6 +896,28 @@ impl BlocklistAIHistoryModel {
                     conversation_id,
                     terminal_view_id,
                 });
+            }
+        }
+    }
+
+    pub fn update_output_for_local_stream(
+        &mut self,
+        stream_id: &ResponseStreamId,
+        conversation_id: AIConversationId,
+        terminal_view_id: EntityId,
+        messages: Vec<AIAgentOutputMessage>,
+        request_cost: Option<RequestCost>,
+        ctx: &mut ModelContext<Self>,
+    ) {
+        if let Some(conversation) = self.conversations_by_id.get_mut(&conversation_id) {
+            if let Err(e) = conversation.update_output_for_local_stream(
+                stream_id,
+                messages,
+                request_cost,
+                terminal_view_id,
+                ctx,
+            ) {
+                log::warn!("Failed to update conversation with local streamed output: {e}");
             }
         }
     }

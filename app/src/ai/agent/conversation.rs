@@ -1521,6 +1521,59 @@ impl AIConversation {
         Ok(())
     }
 
+    pub fn update_output_for_local_stream(
+        &mut self,
+        stream_id: &ResponseStreamId,
+        messages: Vec<AIAgentOutputMessage>,
+        request_cost: Option<RequestCost>,
+        terminal_view_id: EntityId,
+        ctx: &mut ModelContext<BlocklistAIHistoryModel>,
+    ) -> Result<(), UpdateConversationError> {
+        let Some(new_exchanges) = self.added_exchanges_by_response.get(stream_id).cloned() else {
+            return Err(UpdateConversationError::NoPendingRequest);
+        };
+
+        for new_exchange_info in new_exchanges.iter() {
+            let exchange = self.get_exchange_to_update(new_exchange_info.exchange_id)?;
+            match &mut exchange.output_status {
+                AIAgentOutputStatus::Streaming { output } => {
+                    if output.is_none() {
+                        *output = Some(Shared::new(AIAgentOutput {
+                            messages: vec![],
+                            citations: vec![],
+                            server_output_id: Some(ServerOutputId::new(format!(
+                                "local-claude-{}",
+                                stream_id.as_ref()
+                            ))),
+                            api_metadata_bytes: None,
+                            suggestions: None,
+                            telemetry_events: vec![],
+                            model_info: None,
+                            request_cost,
+                        }));
+                    }
+                    if let Some(output) = output {
+                        let mut output = output.get_mut();
+                        output.messages = messages.clone();
+                        output.request_cost = request_cost;
+                    }
+                }
+                AIAgentOutputStatus::Finished { .. } => {
+                    return Err(UpdateConversationError::OutputAlreadyFinished);
+                }
+            }
+            ctx.emit(BlocklistAIHistoryEvent::UpdatedStreamingExchange {
+                exchange_id: new_exchange_info.exchange_id,
+                terminal_view_id,
+                conversation_id: self.id,
+                is_hidden: self
+                    .hidden_exchanges
+                    .contains(&new_exchange_info.exchange_id),
+            });
+        }
+        Ok(())
+    }
+
     pub fn update_cost_and_usage_for_request(
         &mut self,
         request_cost: Option<RequestCost>,

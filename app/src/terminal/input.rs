@@ -186,9 +186,9 @@ use crate::{
     },
     session_management::SessionNavigationPromptElements,
     settings::{
-        AISettings, AISettingsChangedEvent, AliasExpansionSettings, AppEditorSettings,
-        AppEditorSettingsChangedEvent, InputModeSettings, InputSettings, InputSettingsChangedEvent,
-        MAX_TIMES_TO_SHOW_AUTOSUGGESTION_HINT,
+        AISettings, AISettingsChangedEvent, AgentModeProvider, AliasExpansionSettings,
+        AppEditorSettings, AppEditorSettingsChangedEvent, InputModeSettings, InputSettings,
+        InputSettingsChangedEvent, MAX_TIMES_TO_SHOW_AUTOSUGGESTION_HINT,
     },
     settings_view::{flags, SettingsSection},
     terminal::view::inline_banner::{PromptSuggestionsEvent, PromptSuggestionsView},
@@ -236,7 +236,7 @@ use ordered_float::Float;
 use regex::Regex;
 use serde_json::json;
 use session_sharing_protocol::common::{AgentAttachment, ParticipantId, ServerConversationToken};
-use settings::{Setting as _, ToggleableSetting};
+use settings::{Setting, ToggleableSetting};
 use std::{
     any::Any,
     borrow::Cow,
@@ -12568,16 +12568,19 @@ impl Input {
             return;
         }
 
+        let is_local_agent_provider =
+            *AISettings::as_ref(ctx).agent_mode_provider.value() == AgentModeProvider::ClaudeCode;
+
         let has_requests_remaining = AIRequestUsageModel::as_ref(ctx).has_requests_remaining();
 
         let has_any_ai = AIRequestUsageModel::as_ref(ctx).has_any_ai_remaining(ctx);
-        if !has_any_ai {
+        if !is_local_agent_provider && !has_any_ai {
             AIRequestUsageModel::handle(ctx).update(ctx, |model, ctx| {
                 model.enable_buy_credits_banner(ctx);
             });
         }
 
-        if PromptAlertView::does_alert_block_ai_requests(ctx) {
+        if !is_local_agent_provider && PromptAlertView::does_alert_block_ai_requests(ctx) {
             if !has_requests_remaining {
                 send_telemetry_from_ctx!(
                     TelemetryEvent::AgentModeUserAttemptedQueryAtRequestLimit {

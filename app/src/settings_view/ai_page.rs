@@ -25,12 +25,12 @@ use crate::settings::InputSettings;
 use crate::settings::{
     AIAutoDetectionEnabled, AICommandDenylist, AISettingsChangedEvent,
     AgentModeCodingPermissionsType, AgentModeCommandExecutionDenylist,
-    AgentModeCommandExecutionPredicate, AgentModeQuerySuggestionsEnabled, AwsBedrockAutoLogin,
-    AwsBedrockCredentialsEnabled, CanUseWarpCreditsWithByok, CodeSettings, CodebaseContextEnabled,
-    FileBasedMcpEnabled, GitOperationsAutogenEnabled, IncludeAgentCommandsInHistory,
-    IntelligentAutosuggestionsEnabled, MemoryEnabled, NLDInTerminalEnabled,
-    NaturalLanguageAutosuggestionsEnabled, OrchestrationEnabled, RuleSuggestionsEnabled,
-    SharedBlockTitleGenerationEnabled, ShouldRenderCLIAgentToolbar,
+    AgentModeCommandExecutionPredicate, AgentModeProvider, AgentModeQuerySuggestionsEnabled,
+    AwsBedrockAutoLogin, AwsBedrockCredentialsEnabled, CanUseWarpCreditsWithByok, CodeSettings,
+    CodebaseContextEnabled, FileBasedMcpEnabled, GitOperationsAutogenEnabled,
+    IncludeAgentCommandsInHistory, IntelligentAutosuggestionsEnabled, MemoryEnabled,
+    NLDInTerminalEnabled, NaturalLanguageAutosuggestionsEnabled, OrchestrationEnabled,
+    RuleSuggestionsEnabled, SharedBlockTitleGenerationEnabled, ShouldRenderCLIAgentToolbar,
     ShouldRenderUseAgentToolbarForUserCommands, ShouldShowOzUpdatesInZeroState, ShowAgentTips,
     ShowConversationHistory, ShowHintText, ThinkingDisplayMode, VoiceInputEnabled,
     WarpDriveContextEnabled,
@@ -65,7 +65,6 @@ use warpui::{
         Container, Flex, FormattedTextElement, HighlightedHyperlink, HyperlinkUrl, ParentElement,
     },
     ui_components::{
-        button::ButtonVariant,
         components::{Coords, UiComponent, UiComponentStyles},
         switch::{SwitchStateHandle, TooltipConfig},
     },
@@ -397,6 +396,7 @@ pub struct AISettingsPageView {
     page: PageType<Self>,
     active_subpage: Option<AISubpage>,
     voice_input_toggle_key_dropdown: ViewHandle<Dropdown<AISettingsPageAction>>,
+    agent_mode_provider_dropdown: ViewHandle<Dropdown<AISettingsPageAction>>,
     local_only_icon_tooltip_states: RefCell<HashMap<String, MouseStateHandle>>,
     autodetection_denylist_editor: ViewHandle<EditorView>,
     autonomy_dropdown_menu: ViewHandle<Dropdown<AISettingsPageAction>>,
@@ -521,6 +521,35 @@ impl AISettingsPageView {
                         DropdownItem::new(
                             val.display_name(),
                             AISettingsPageAction::SetVoiceInputToggleKey(val),
+                        )
+                    })
+                    .collect(),
+                ctx,
+            );
+            dropdown.set_selected_by_index(selected_index, ctx);
+
+            dropdown
+        });
+
+        let agent_mode_provider_dropdown = ctx.add_typed_action_view(|ctx| {
+            let mut dropdown = Dropdown::new(ctx);
+            dropdown.set_top_bar_max_width(AI_SETTINGS_DROPDOWN_WIDTH);
+            dropdown.set_menu_width(AI_SETTINGS_DROPDOWN_WIDTH, ctx);
+
+            let values = AgentModeProvider::iter().collect::<Vec<_>>();
+            let current_value = *AISettings::as_ref(ctx).agent_mode_provider.value();
+            let selected_index = values
+                .iter()
+                .position(|val| *val == current_value)
+                .unwrap_or(0);
+
+            dropdown.add_items(
+                values
+                    .into_iter()
+                    .map(|val| {
+                        DropdownItem::new(
+                            val.display_name(),
+                            AISettingsPageAction::SetAgentModeProvider(val),
                         )
                     })
                     .collect(),
@@ -939,6 +968,16 @@ impl AISettingsPageView {
                         .value()
                         .display_name();
                     me.voice_input_toggle_key_dropdown
+                        .update(ctx, |dropdown, ctx| {
+                            dropdown.set_selected_by_name(current_value, ctx)
+                        });
+                }
+                AISettingsChangedEvent::AgentModeProvider { .. } => {
+                    let current_value = AISettings::as_ref(ctx)
+                        .agent_mode_provider
+                        .value()
+                        .display_name();
+                    me.agent_mode_provider_dropdown
                         .update(ctx, |dropdown, ctx| {
                             dropdown.set_selected_by_name(current_value, ctx)
                         });
@@ -1390,6 +1429,7 @@ impl AISettingsPageView {
             page: Self::build_page(None, ctx),
             active_subpage: None,
             voice_input_toggle_key_dropdown,
+            agent_mode_provider_dropdown,
             autodetection_denylist_editor,
             local_only_icon_tooltip_states: Default::default(),
             command_execution_allowlist_editor,
@@ -1546,6 +1586,7 @@ impl AISettingsPageView {
                 if voice_supported {
                     widgets.push(Box::new(VoiceWidget::default()));
                 }
+                widgets.push(Box::new(CLIAgentWidget::default()));
                 widgets.push(Box::new(ApiKeysWidget::new(ctx)));
                 widgets.push(Box::new(AwsBedrockWidget::new(ctx)));
                 widgets.push(Box::new(AgentAttributionWidget::default()));
@@ -2197,6 +2238,7 @@ impl Entity for AISettingsPageView {
 pub enum AISettingsPageAction {
     OpenUrl(String),
     SetVoiceInputToggleKey(VoiceInputToggleKey),
+    SetAgentModeProvider(AgentModeProvider),
     ToggleGlobalAI,
     ToggleActiveAI,
     ToggleIntelligentAutosuggestions,
@@ -2297,6 +2339,12 @@ impl TypedActionView for AISettingsPageView {
                     report_if_error!(settings
                         .explicitly_interacted_with_voice
                         .set_value(true, ctx));
+                });
+                ctx.notify();
+            }
+            AISettingsPageAction::SetAgentModeProvider(provider) => {
+                AISettings::handle(ctx).update(ctx, |settings, ctx| {
+                    report_if_error!(settings.agent_mode_provider.set_value(*provider, ctx));
                 });
                 ctx.notify();
             }
@@ -3236,7 +3284,6 @@ fn render_ai_list(
 #[derive(Default)]
 struct GlobalAIWidget {
     switch_state: SwitchStateHandle,
-    sign_up_button: MouseStateHandle,
 }
 
 impl SettingsWidget for GlobalAIWidget {
@@ -3256,10 +3303,6 @@ impl SettingsWidget for GlobalAIWidget {
         let ui_builder = appearance.ui_builder();
         let is_ai_disabled_due_to_remote_session_org_policy =
             AISettings::as_ref(app).is_ai_disabled_due_to_remote_session_org_policy(app);
-
-        let is_anonymous = AuthStateProvider::as_ref(app)
-            .get()
-            .is_anonymous_or_logged_out();
 
         let mut row = Flex::row()
             .with_main_axis_size(MainAxisSize::Max)
@@ -3293,75 +3336,20 @@ impl SettingsWidget for GlobalAIWidget {
             );
         }
 
-        // Show sign-up button for anonymous users, toggle for logged-in users
-        if is_anonymous {
-            row.add_child(
-                Flex::row()
-                    .with_cross_axis_alignment(CrossAxisAlignment::Center)
-                    .with_child(
-                        Container::new(
-                            Text::new_inline(
-                                "To use AI features, please create an account.",
-                                appearance.ui_font_family(),
-                                14.,
-                            )
-                            .with_color(
-                                appearance
-                                    .theme()
-                                    .sub_text_color(appearance.theme().surface_2())
-                                    .into_solid(),
-                            )
-                            .finish(),
-                        )
-                        .with_margin_right(16.)
-                        .finish(),
-                    )
-                    .with_child(
-                        Container::new(
-                            ui_builder
-                                .button(ButtonVariant::Accent, self.sign_up_button.clone())
-                                .with_style(UiComponentStyles {
-                                    font_size: Some(14.),
-                                    font_weight: Some(Weight::Semibold),
-                                    border_radius: Some(CornerRadius::with_all(Radius::Pixels(4.))),
-                                    padding: Some(Coords {
-                                        top: 8.,
-                                        bottom: 8.,
-                                        left: 24.,
-                                        right: 24.,
-                                    }),
-                                    ..Default::default()
-                                })
-                                .with_text_label("Sign up".to_owned())
-                                .build()
-                                .on_click(move |ctx, _, _| {
-                                    ctx.dispatch_typed_action(
-                                        AISettingsPageAction::SignupAnonymousUser,
-                                    );
-                                })
-                                .finish(),
-                        )
-                        .with_padding_right(TOGGLE_BUTTON_RIGHT_PADDING)
-                        .finish(),
-                    )
+        row.add_child(
+            Container::new(
+                ui_builder
+                    .switch(self.switch_state.clone())
+                    .check(AISettings::as_ref(app).is_any_ai_enabled(app))
+                    .build()
+                    .on_click(move |ctx, _, _| {
+                        ctx.dispatch_typed_action(AISettingsPageAction::ToggleGlobalAI);
+                    })
                     .finish(),
-            );
-        } else {
-            row.add_child(
-                Container::new(
-                    ui_builder
-                        .switch(self.switch_state.clone())
-                        .check(AISettings::as_ref(app).is_any_ai_enabled(app))
-                        .build()
-                        .on_click(move |ctx, _, _| {
-                            ctx.dispatch_typed_action(AISettingsPageAction::ToggleGlobalAI);
-                        })
-                        .finish(),
-                )
-                .with_padding_right(TOGGLE_BUTTON_RIGHT_PADDING)
-                .finish(),
-            );
-        }
+            )
+            .with_padding_right(TOGGLE_BUTTON_RIGHT_PADDING)
+            .finish(),
+        );
 
         Container::new(row.finish())
             .with_padding_bottom(15.)
@@ -5805,6 +5793,41 @@ impl SettingsWidget for CLIAgentWidget {
 
         let is_footer_enabled = *ai_settings.should_render_cli_agent_footer;
 
+        let provider_label = render_body_item_label::<AISettingsPageAction>(
+            "Agent Mode provider".into(),
+            Some(styles::header_font_color(true, app)),
+            None,
+            LocalOnlyIconState::for_setting(
+                AgentModeProvider::storage_key(),
+                AgentModeProvider::sync_to_cloud(),
+                &mut view.local_only_icon_tooltip_states.borrow_mut(),
+                app,
+            ),
+            ToggleState::Enabled,
+            appearance,
+        );
+        let provider_setting = build_toggle_element(
+            provider_label,
+            ChildView::new(&view.agent_mode_provider_dropdown).finish(),
+            appearance,
+            None,
+        );
+
+        let provider_description = appearance
+            .ui_builder()
+            .wrappable_text(
+                "Choose whether integrated Agent Mode sends requests to Warp AI or a local Claude Code CLI session."
+                    .to_string(),
+                true,
+            )
+            .with_style(UiComponentStyles {
+                font_color: Some(styles::description_font_color(true, app).into()),
+                font_size: Some(appearance.ui_font_size()),
+                ..Default::default()
+            })
+            .build()
+            .finish();
+
         let mut column = Flex::column()
             .with_child(
                 build_sub_header(
@@ -5814,6 +5837,14 @@ impl SettingsWidget for CLIAgentWidget {
                 )
                 .with_padding_bottom(HEADER_PADDING)
                 .finish(),
+            )
+            .with_child(provider_setting)
+            .with_child(
+                Container::new(provider_description)
+                    .with_margin_top(styles::DESCRIPTION_NEGATIVE_MARGIN_OFFSET)
+                    .with_margin_bottom(styles::DESCRIPTION_MARGIN_BOTTOM)
+                    .with_margin_right(styles::TOGGLE_WIDTH_MARGIN)
+                    .finish(),
             )
             .with_child(cli_agent_footer_toggle)
             .with_child(

@@ -9,7 +9,6 @@ use std::path::PathBuf;
 use indexmap::IndexMap;
 
 use crate::ai::request_usage_model::RequestLimitInfo;
-use crate::auth::AuthStateProvider;
 use crate::report_if_error;
 use crate::terminal::CLIAgent;
 use crate::workspaces::user_workspaces::UserWorkspaces;
@@ -707,6 +706,49 @@ impl settings_value::SettingsValue for ToolbarCommandMap {
     }
 }
 
+#[derive(
+    Default,
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+    PartialEq,
+    Copy,
+    Clone,
+    EnumIter,
+    schemars::JsonSchema,
+    settings_value::SettingsValue,
+)]
+#[schemars(
+    description = "Provider used for integrated Agent Mode requests.",
+    rename_all = "snake_case"
+)]
+pub enum AgentModeProvider {
+    #[default]
+    #[schemars(description = "Use Warp's hosted Agent Mode service.")]
+    WarpAi,
+    #[schemars(description = "Use the local Claude Code CLI.")]
+    ClaudeCode,
+}
+
+settings::macros::implement_setting_for_enum!(
+    AgentModeProvider,
+    AISettings,
+    SupportedPlatforms::DESKTOP,
+    SyncToCloud::Never,
+    private: false,
+    toml_path: "agents.warp_agent.provider",
+    description: "The provider used for integrated Agent Mode requests.",
+);
+
+impl AgentModeProvider {
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            AgentModeProvider::WarpAi => "Warp AI",
+            AgentModeProvider::ClaudeCode => "Claude Code (local)",
+        }
+    }
+}
+
 define_settings_group!(AISettings, settings: [
     // If `false`, all AI features are disabled.
     is_any_ai_enabled: IsAnyAIEnabled {
@@ -1214,6 +1256,8 @@ define_settings_group!(AISettings, settings: [
         description: "Whether to show the \"Use Agent\" footer for terminal commands.",
     }
 
+    agent_mode_provider: AgentModeProvider,
+
     // Whether to render the CLI agent footer for commands like Claude, Codex, Gemini, etc.
     // This is independent of the "Use Agent" footer setting.
     should_render_cli_agent_footer: ShouldRenderCLIAgentToolbar {
@@ -1497,14 +1541,7 @@ impl AISettings {
     }
 
     pub fn is_any_ai_enabled(&self, app: &AppContext) -> bool {
-        // Disable AI for anonymous and logged-out users.
-        let is_anonymous_or_logged_out = AuthStateProvider::as_ref(app)
-            .get()
-            .is_anonymous_or_logged_out();
-
-        *self.is_any_ai_enabled
-            && !is_anonymous_or_logged_out
-            && !self.is_ai_disabled_due_to_remote_session_org_policy(app)
+        *self.is_any_ai_enabled && !self.is_ai_disabled_due_to_remote_session_org_policy(app)
     }
 
     pub fn default_session_mode(&self, app: &AppContext) -> DefaultSessionMode {
