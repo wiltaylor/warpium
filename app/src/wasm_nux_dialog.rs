@@ -44,7 +44,7 @@ pub enum WasmNUXDialogEvent {
 }
 
 /// A dialog that prompts the user to:
-/// * Download Warp if they haven't already
+/// * Download Warpium if they haven't already
 /// * Explicitly choose between native and web.
 pub struct WasmNUXDialog {
     close_mouse_state: MouseStateHandle,
@@ -154,18 +154,18 @@ impl View for WasmNUXDialog {
 
         let dialog = if self.requested_download {
             Dialog::new(
-                "Open in Warp Desktop?".to_string(),
+                "Open in Warpium Desktop?".to_string(),
                 Some("Future links will automatically open on desktop.".to_string()),
                 dialog_styles,
             )
             .with_bottom_row_child(Self::render_dialog_button(
-                "Open in Warp",
+                "Open in Warpium",
                 WasmNUXDialogAction::OpenNativeAndClose,
                 &self.confirm_mouse_state,
                 appearance,
             ))
         } else if app_install_detected == &UserAppInstallStatus::NotDetected {
-            Dialog::new("Download Warp Desktop?".to_string(), None, dialog_styles)
+            Dialog::new("Download Warpium Desktop?".to_string(), None, dialog_styles)
                 .with_child(
                     Flex::column()
                         .with_cross_axis_alignment(CrossAxisAlignment::Stretch)
@@ -173,7 +173,7 @@ impl View for WasmNUXDialog {
                         .with_child(
                             appearance
                                 .ui_builder()
-                                .span("Warp is the intelligent terminal with AI and your dev team's knowledge built-in.")
+                                .span("Warpium is the intelligent terminal with AI and your dev team's knowledge built-in.")
                                 .with_style(UiComponentStyles {
                                     font_weight: Some(Weight::Thin),
                                     font_color: Some(

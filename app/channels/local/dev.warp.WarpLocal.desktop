@@ -4,7 +4,7 @@ Version=1.0
 
 Type=Application
 
-Name=WarpLocal
+Name=WarpiumLocal
 GenericName=TerminalEmulator
 
 Exec=warp-terminal-local %U

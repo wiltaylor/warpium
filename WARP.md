@@ -5,11 +5,11 @@ This file provides guidance when working with code in this repository.
 ## Development Commands
 
 ### Build and Run
-- `cargo run` - Build and run Warp locally
+- `cargo run` - Build and run Warpium locally
 - `cargo bundle --bin warp` - Bundle the main app
 
 ### Running with local warp-server
-To connect Warp client to a local warp-server instance:
+To connect Warpium client to a local warp-server instance:
 
 ```bash
 # Connect to server on default port 8080
@@ -143,7 +143,7 @@ This is a Rust-based terminal emulator with a custom UI framework called **WarpU
 
 ### Feature Flags
 
-Warp uses compile-time feature flags with a small runtime plumbing layer.
+Warpium uses compile-time feature flags with a small runtime plumbing layer.
 
 How to add a feature flag:
 - Add a new variant to `warp_core/src/features.rs` in the `FeatureFlag` enum

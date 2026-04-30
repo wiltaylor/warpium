@@ -417,26 +417,26 @@ const AGENT_MODE_AI_DISABLED_AUTODETECTION_DISABLED_HINT_TEXT: &str = "Run comma
 
 // Rotating hint text options for new Agent Mode conversations
 const AGENT_MODE_HINT_OPTIONS: &[&str] = &[
-    "Warp anything e.g. Deploy my React app to Vercel and set up environment variables",
-    "Warp anything e.g. Help me debug why my Python tests are failing in CI",
-    "Warp anything e.g. Set up a new microservice with Docker and create the deployment pipeline",
-    "Warp anything e.g. Find and fix the memory leak in my Node.js application",
-    "Warp anything e.g. Create a backup script for my PostgreSQL database and schedule it",
-    "Warp anything e.g. Help me migrate my data from MySQL to PostgreSQL",
-    "Warp anything e.g. Set up monitoring and alerts for my AWS infrastructure",
-    "Warp anything e.g. Build a REST API for my mobile app using FastAPI",
-    "Warp anything e.g. Help me optimize my SQL queries that are running slowly",
-    "Warp anything e.g. Create a GitHub Actions workflow to automatically deploy on merge",
-    "Warp anything e.g. Set up Redis caching for my web application",
-    "Warp anything e.g. Help me troubleshoot why my Kubernetes pods keep crashing",
-    "Warp anything e.g. Build a data pipeline to process CSV files and load them into BigQuery",
-    "Warp anything e.g. Set up SSL certificates and configure HTTPS for my domain",
-    "Warp anything e.g. Help me refactor this legacy code to use modern design patterns",
-    "Warp anything e.g. Create unit tests for my authentication service",
-    "Warp anything e.g. Set up log aggregation with ELK stack for my distributed system",
-    "Warp anything e.g. Help me implement OAuth2 authentication in my Express.js app",
-    "Warp anything e.g. Optimize my Docker images to reduce build times and size",
-    "Warp anything e.g. Set up A/B testing infrastructure for my web application",
+    "Warpium anything e.g. Deploy my React app to Vercel and set up environment variables",
+    "Warpium anything e.g. Help me debug why my Python tests are failing in CI",
+    "Warpium anything e.g. Set up a new microservice with Docker and create the deployment pipeline",
+    "Warpium anything e.g. Find and fix the memory leak in my Node.js application",
+    "Warpium anything e.g. Create a backup script for my PostgreSQL database and schedule it",
+    "Warpium anything e.g. Help me migrate my data from MySQL to PostgreSQL",
+    "Warpium anything e.g. Set up monitoring and alerts for my AWS infrastructure",
+    "Warpium anything e.g. Build a REST API for my mobile app using FastAPI",
+    "Warpium anything e.g. Help me optimize my SQL queries that are running slowly",
+    "Warpium anything e.g. Create a GitHub Actions workflow to automatically deploy on merge",
+    "Warpium anything e.g. Set up Redis caching for my web application",
+    "Warpium anything e.g. Help me troubleshoot why my Kubernetes pods keep crashing",
+    "Warpium anything e.g. Build a data pipeline to process CSV files and load them into BigQuery",
+    "Warpium anything e.g. Set up SSL certificates and configure HTTPS for my domain",
+    "Warpium anything e.g. Help me refactor this legacy code to use modern design patterns",
+    "Warpium anything e.g. Create unit tests for my authentication service",
+    "Warpium anything e.g. Set up log aggregation with ELK stack for my distributed system",
+    "Warpium anything e.g. Help me implement OAuth2 authentication in my Express.js app",
+    "Warpium anything e.g. Optimize my Docker images to reduce build times and size",
+    "Warpium anything e.g. Set up A/B testing infrastructure for my web application",
 ];
 
 fn get_agent_mode_new_conversation_hint_text() -> &'static str {
@@ -5260,7 +5260,7 @@ impl Input {
             }
             (InputType::AI, _) => {
                 // Follow the `agent_indicator` pattern (see `app/src/tab.rs`):
-                //  * `None` (no conversation, empty, passive, or untitled) => new conversation => "Warp anything"
+                //  * `None` (no conversation, empty, passive, or untitled) => new conversation => "Warpium anything"
                 //  * `InProgress`                                           => agent running    => "Steer"
                 //  * Any other status                                       => finished         => "Ask a follow up"
                 match self

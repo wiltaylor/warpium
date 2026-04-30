@@ -88,7 +88,7 @@ const USER_SECRET_REGEX_DESCRIPTION: &str =
 const TELEMETRY_DESCRIPTION_OLD: &str =
     "App analytics help us make the product better for you. We only collect \
     app usage metadata, never console input or output.";
-const TELEMETRY_TITLE: &str = "Help improve Warp";
+const TELEMETRY_TITLE: &str = "Help improve Warpium";
 const TELEMETRY_DESCRIPTION: &str =
     "App analytics help us make the product better for you. We may collect \
     certain console interactions to improve Warp's AI capabilities.";
@@ -104,7 +104,7 @@ const DATA_MANAGEMENT_DESCRIPTION: &str =
 const DATA_MANAGEMENT_LINK_TEXT: &str = "Visit the data management page";
 
 const PRIVACY_POLICY_TITLE: &str = "Privacy policy";
-const PRIVACY_POLICY_LINK_TEXT: &str = "Read Warp's privacy policy";
+const PRIVACY_POLICY_LINK_TEXT: &str = "Read Warpium's privacy policy";
 
 pub fn data_management_url(custom_token: Option<&str>) -> String {
     match custom_token {
@@ -1758,7 +1758,7 @@ impl SettingsWidget for CloudConversationStorageWidget {
                         if is_checked {
                             "Agent conversations can be shared with others and are retained \
                             when you log in on different devices. This data is only stored \
-                            for product functionality, and Warp will not use it for analytics."
+                            for product functionality, and Warpium will not use it for analytics."
                         } else {
                             "Agent conversations are only stored locally on your machine, are \
                             lost upon logout, and cannot be shared. Note: conversation data \

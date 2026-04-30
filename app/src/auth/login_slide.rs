@@ -510,7 +510,7 @@ impl LoginSlideView {
         let tos_line = Flex::row()
             .with_child(
                 ui_builder
-                    .span("By continuing, you agree to Warp's ")
+                    .span("By continuing, you agree to Warpium's ")
                     .with_style(disclaimer_styles)
                     .build()
                     .finish(),
@@ -933,7 +933,7 @@ impl LoginSlideView {
         let body_text_str = if is_terminal {
             "Warp Drive lets you save workflows and knowledge across devices and share them with your team. By continuing, you won't have access to the following features:"
         } else {
-            "Warp is better with AI. By continuing, you won't have access to any of the following features:"
+            "Warpium is better with AI. By continuing, you won't have access to any of the following features:"
         };
         let body_text =
             FormattedTextElement::from_str(body_text_str, appearance.ui_font_family(), 14.)

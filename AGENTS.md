@@ -2,12 +2,12 @@
 
 ## Project Structure & Module Organization
 
-Warp is a Rust Cargo workspace. The main desktop client lives in `app/`, with source under `app/src`, assets in `app/assets`, and app-level tests in `app/tests`. Shared libraries are in `crates/*`; important crates include `crates/warpui` and `crates/warpui_core` for the custom UI framework, `crates/warp_terminal` for terminal behavior, `crates/editor` for editing primitives, and `crates/integration` for end-to-end tests. Contribution specs live in `specs/GH<issue-number>/`. Agent and repo workflow guidance lives in `.agents/skills/`, while broader engineering notes are in `WARP.md`.
+Warpium is a Rust Cargo workspace. The main desktop client lives in `app/`, with source under `app/src`, assets in `app/assets`, and app-level tests in `app/tests`. Shared libraries are in `crates/*`; important crates include `crates/warpui` and `crates/warpui_core` for the custom UI framework, `crates/warp_terminal` for terminal behavior, `crates/editor` for editing primitives, and `crates/integration` for end-to-end tests. Contribution specs live in `specs/GH<issue-number>/`. Agent and repo workflow guidance lives in `.agents/skills/`, while broader engineering notes are in `WARP.md`.
 
 ## Build, Test, and Development Commands
 
 - `./script/bootstrap`: install platform-specific build prerequisites.
-- `./script/run` or `cargo run`: build and run Warp locally.
+- `./script/run` or `cargo run`: build and run Warpium locally.
 - `cargo run --features with_local_server`: run the client against a local server; set `SERVER_ROOT_URL` and `WS_SERVER_URL` for non-default ports.
 - `./script/presubmit`: run the expected local gate: formatting, clippy, clang-format, and tests.
 - `cargo nextest run --no-fail-fast --workspace --exclude command-signatures-v2`: run workspace tests.

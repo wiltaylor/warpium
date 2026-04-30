@@ -42,8 +42,8 @@ use warpui::{
 
 const HEADER_FONT_SIZE: f32 = 18.;
 const HEADER_MARGIN_BOTTOM: f32 = 32.;
-const HEADER_TEXT: &str = "Invite a friend to Warp";
-const ANONYMOUS_USER_HEADER_TEXT: &str = "Sign up to participate in Warp's referral program";
+const HEADER_TEXT: &str = "Invite a friend to Warpium";
+const ANONYMOUS_USER_HEADER_TEXT: &str = "Sign up to participate in Warpium's referral program";
 
 const INVITE_FIELD_LABEL_BOTTOM_MARGIN: f32 = 8.;
 

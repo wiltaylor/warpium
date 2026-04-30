@@ -4,7 +4,7 @@ Version=1.0
 
 Type=Application
 
-Name=WarpPreview
+Name=WarpiumPreview
 GenericName=TerminalEmulator
 
 Exec=warp-terminal-preview %U

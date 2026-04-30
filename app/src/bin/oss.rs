@@ -8,7 +8,7 @@ use warp_core::{
     AppId,
 };
 
-// Simple wrapper around warp::run() for Warp OSS builds.
+// Simple wrapper around warp::run() for Warpium OSS builds.
 fn main() -> Result<()> {
     let mut state = ChannelState::new(
         Channel::Oss,
@@ -41,7 +41,7 @@ embed_plist::embed_info_plist_bytes!(r#"
     <key>CFBundleDevelopmentRegion</key>
     <string>English</string>
     <key>CFBundleDisplayName</key>
-    <string>WarpOss</string>
+    <string>WarpiumOss</string>
     <key>CFBundleExecutable</key>
     <string>warp-oss</string>
     <key>CFBundleIdentifier</key>
@@ -49,7 +49,7 @@ embed_plist::embed_info_plist_bytes!(r#"
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>WarpOss</string>
+    <string>WarpiumOss</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

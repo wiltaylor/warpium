@@ -92,27 +92,32 @@ if ("$CHANNEL" -eq 'local') {
     $WARP_BIN = 'warp'
     $BINARY_NAME = 'warp.exe'
     $APP_NAME = 'WarpLocal'
+    $APP_DISPLAY_NAME = 'WarpiumLocal'
     $FEATURES = "$FEATURES,nld_improvements"
 } elseif ("$CHANNEL" -eq 'dev') {
     $WARP_BIN = 'dev'
     $BINARY_NAME = 'dev.exe'
     $APP_NAME = 'WarpDev'
+    $APP_DISPLAY_NAME = 'WarpiumDev'
     $FEATURES = "$FEATURES,agent_mode_debug,nld_improvements"
 } elseif ("$CHANNEL" -eq 'preview') {
     $WARP_BIN = 'preview'
     $BINARY_NAME = 'preview.exe'
     $APP_NAME = 'WarpPreview'
+    $APP_DISPLAY_NAME = 'WarpiumPreview'
     $FEATURES = "$FEATURES,preview_channel,nld_improvements"
 } elseif ("$CHANNEL" -eq 'stable') {
     $WARP_BIN = 'stable'
     $BINARY_NAME = 'warp.exe'
     $APP_NAME = 'Warp'
+    $APP_DISPLAY_NAME = 'Warpium'
     # TODO(vorporeal): Remove this once we get tests passing with this default enabled.
     $FEATURES = "$FEATURES,nld_improvements"
 } elseif ("$CHANNEL" -eq 'oss') {
     $WARP_BIN = 'warp-oss'
     $BINARY_NAME = 'warp-oss.exe'
     $APP_NAME = 'WarpOss'
+    $APP_DISPLAY_NAME = 'WarpiumOss'
     # The OSS channel does not ship Sentry, so drop the crash_reporting feature
     # (which would otherwise pull in the Sentry SDK as a dependency).
     $FEATURES = 'release_bundle,gui,nld_improvements'
@@ -139,19 +144,19 @@ if ($DEBUG_BUILD) {
 if ($CHECK_ONLY) {
     cargo check -p warp --profile "$CARGO_PROFILE" --bin "$WARP_BIN" --features "$FEATURES" --target $PLATFORM_TARGET
     if (-Not $?) {
-        Write-Error "Failed to verify Warp $WARP_BIN compilation with profile $CARGO_PROFILE"
+        Write-Error "Failed to verify Warpium $WARP_BIN compilation with profile $CARGO_PROFILE"
         exit 1
     }
     exit 0
 }
 
 if (-Not $SKIP_BUILD_BINARY) {
-    Write-Output "Building Warp for channel $CHANNEL and bundle id $BUNDLE_ID"
+    Write-Output "Building Warpium for channel $CHANNEL and bundle id $BUNDLE_ID"
     $env:CARGO_BIN_NAME = $CHANNEL
-    $env:WARP_APP_NAME = $APP_NAME
+    $env:WARP_APP_NAME = $APP_DISPLAY_NAME
     cargo build -p warp --profile "$CARGO_PROFILE" --bin "$WARP_BIN" --features "$FEATURES" --target $PLATFORM_TARGET
     if (-Not $?) {
-        Write-Error "Failed to build Warp $WARP_BIN binary with profile $CARGO_PROFILE"
+        Write-Error "Failed to build Warpium $WARP_BIN binary with profile $CARGO_PROFILE"
         exit 1
     }
 
@@ -186,13 +191,14 @@ if (-Not $?) {
     exit 1
 }
 
-Write-Output 'Building Warp installer'
+Write-Output 'Building Warpium installer'
 $ISCC_ARGS = @(
     "$WINDOWS_INSTALLER_DIR\windows-installer.iss",
     "/DReleaseChannel=$CHANNEL",
     "/DMyAppExeName=$BINARY_NAME",
     "/DTargetProfileDir=$CARGO_TARGET_OUTPUT_DIR",
     "/DMyAppName=$APP_NAME",
+    "/DMyAppDisplayName=$APP_DISPLAY_NAME",
     "/DMyAppVersion=$env:GIT_RELEASE_TAG",
     "/DArch=$ARCH",
     "/DOutputName=$INSTALLER_NAME"

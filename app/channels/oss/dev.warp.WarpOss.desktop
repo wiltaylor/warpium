@@ -4,7 +4,7 @@ Version=1.0
 
 Type=Application
 
-Name=WarpOss
+Name=WarpiumOss
 GenericName=TerminalEmulator
 
 Exec=warp-oss %U
