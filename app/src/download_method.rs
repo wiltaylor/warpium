@@ -1,5 +1,6 @@
 use crate::{
     auth::auth_state::AuthState,
+    channel::ChannelState,
     send_telemetry_on_executor,
     server::telemetry::{DownloadSource, TelemetryEvent},
 };
@@ -9,6 +10,10 @@ use warpui::r#async::executor::Background;
 /// Determine the Warp download method (if possible) and send a telemetry event reporting that
 /// method
 pub fn determine_and_report(auth_state: Arc<AuthState>, executor: Arc<Background>) {
+    if !ChannelState::is_telemetry_available() {
+        return;
+    }
+
     let telemetry_executor = executor.clone();
     executor
         .spawn(async move {

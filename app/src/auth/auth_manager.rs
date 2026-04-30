@@ -436,7 +436,7 @@ impl AuthManager {
                 });
 
                 // Now that the user is logged in, do the daily version check.
-                if FeatureFlag::Autoupdate.is_enabled() {
+                if ChannelState::is_autoupdate_available() && FeatureFlag::Autoupdate.is_enabled() {
                     AutoupdateState::handle(ctx).update(ctx, |autoupdate_state, ctx| {
                         autoupdate_state.maybe_daily_check_for_update(ctx);
                     });

@@ -144,10 +144,10 @@ pub async fn rotate_log_files() {
         log::error!("Failed to rotate log files: {err:?}");
     }
 
-    if FeatureFlag::SendTelemetryToFile.is_enabled()
-        && let Err(err) = rotate_files(&ChannelState::telemetry_file_name(), max_rotation).await
-    {
-        log::error!("Failed to rotate telemetry files: {err:?}");
+    if ChannelState::is_telemetry_available() && FeatureFlag::SendTelemetryToFile.is_enabled() {
+        if let Err(err) = rotate_files(&ChannelState::telemetry_file_name(), max_rotation).await {
+            log::error!("Failed to rotate telemetry files: {err:?}");
+        }
     }
 }
 

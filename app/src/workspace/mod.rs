@@ -1031,7 +1031,7 @@ pub fn init(app: &mut AppContext) {
         .with_custom_action(CustomAction::SearchDrive),
     ]);
 
-    if FeatureFlag::Autoupdate.is_enabled() {
+    if ChannelState::is_autoupdate_available() && FeatureFlag::Autoupdate.is_enabled() {
         app.register_editable_bindings([
             EditableBinding::new(
                 "workspace:update_and_relaunch",

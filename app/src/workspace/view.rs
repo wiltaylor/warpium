@@ -12749,6 +12749,10 @@ impl Workspace {
     }
 
     fn manual_check_for_update(&self, ctx: &mut ViewContext<Self>) {
+        if !ChannelState::is_autoupdate_available() {
+            return;
+        }
+
         AutoupdateState::handle(ctx).update(ctx, |autoupdate_state, ctx| {
             autoupdate_state.manually_check_for_update(ctx);
         });
@@ -18393,7 +18397,7 @@ impl Workspace {
     }
 
     fn render_autoupdate_banner_element(&self, app: &AppContext) -> Option<WorkspaceBannerFields> {
-        if FeatureFlag::Autoupdate.is_enabled() {
+        if ChannelState::is_autoupdate_available() && FeatureFlag::Autoupdate.is_enabled() {
             match autoupdate::get_update_state(app) {
                 AutoupdateStage::UnableToUpdateToNewVersion { new_version }
                     if !self.autoupdate_unable_to_update_banner_dismissed =>

@@ -129,7 +129,8 @@ impl AutoupdateState {
         ctx.add_singleton_model(move |ctx| {
             let state_handle = WindowManager::handle(ctx);
             let mut me = Self::new(server_api);
-            if FeatureFlag::Autoupdate.is_enabled()
+            if ChannelState::is_autoupdate_available()
+                && FeatureFlag::Autoupdate.is_enabled()
                 && AppExecutionMode::as_ref(ctx).can_autoupdate()
             {
                 // Initiate the polling loop
@@ -200,6 +201,10 @@ impl AutoupdateState {
 
     /// User-initiated check for updates.
     pub fn manually_check_for_update(&mut self, ctx: &mut ModelContext<Self>) {
+        if !ChannelState::is_autoupdate_available() {
+            return;
+        }
+
         self.enqueue_request(RequestType::ManualCheck, ctx);
     }
 
@@ -215,6 +220,10 @@ impl AutoupdateState {
     /// Trigger the update check to /client_version/daily, but only go through with sending the
     /// request if we haven't done that today.
     pub fn maybe_daily_check_for_update(&mut self, ctx: &mut ModelContext<Self>) {
+        if !ChannelState::is_autoupdate_available() {
+            return;
+        }
+
         self.enqueue_request(RequestType::DailyCheck, ctx)
     }
 
@@ -838,6 +847,10 @@ pub fn apply_update(
 /// 2. Request a relaunch.
 /// 3. Terminate the app.
 pub fn initiate_relaunch_for_update(app: &mut AppContext) {
+    if !ChannelState::is_autoupdate_available() {
+        return;
+    }
+
     let autoupdate_stage = &AutoupdateState::as_ref(app).stage;
 
     match autoupdate_stage {
@@ -906,6 +919,10 @@ pub fn apply_pending_update<F>(app: &mut AppContext, on_update_complete: F) -> b
 where
     F: FnOnce(&mut AppContext) + Send + 'static,
 {
+    if !ChannelState::is_autoupdate_available() {
+        return false;
+    }
+
     let has_update = AutoupdateState::handle(app).update(app, |autoupdate_state, ctx| {
         if let AutoupdateStage::UpdateReady {
             new_version,
@@ -985,6 +1002,10 @@ pub fn cancel_relaunch(app: &mut AppContext) {
 }
 
 pub fn spawn_child_if_necessary(app: &mut AppContext) {
+    if !ChannelState::is_autoupdate_available() {
+        return;
+    }
+
     let relaunch_handle = RelaunchModel::handle(app);
     let status = relaunch_handle.as_ref(app).relaunch_status;
 
@@ -1019,6 +1040,10 @@ pub fn spawn_child_if_necessary(app: &mut AppContext) {
 }
 
 pub fn manually_download_new_version(ctx: &mut AppContext) {
+    if !ChannelState::is_autoupdate_available() {
+        return;
+    }
+
     match get_update_state(ctx) {
         AutoupdateStage::UnableToUpdateToNewVersion { new_version }
         | AutoupdateStage::UnableToLaunchNewVersion { new_version } => {
@@ -1039,11 +1064,19 @@ fn manually_download_version(channel: &Channel, version: &VersionInfo, ctx: &mut
 }
 
 pub(crate) fn check_and_report_update_errors(_ctx: &mut AppContext) {
+    if !ChannelState::is_autoupdate_available() {
+        return;
+    }
+
     #[cfg(windows)]
     windows::check_and_report_update_errors(_ctx);
 }
 
 pub fn remove_old_executable() -> Result<()> {
+    if !ChannelState::is_autoupdate_available() {
+        return Ok(());
+    }
+
     cfg_if::cfg_if! {
         if #[cfg(target_os = "macos")] {
             mac::remove_old_executable()

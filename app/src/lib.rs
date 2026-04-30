@@ -627,7 +627,11 @@ pub fn run() -> Result<()> {
             warp_cli::Command::Worker(warp_cli::WorkerCommand::MinidumpServer { socket_name }) => {
                 cfg_if::cfg_if! {
                     if #[cfg(all(linux_or_windows, feature = "crash_reporting"))] {
-                        return crate::crash_reporting::run_minidump_server(socket_name);
+                        if ChannelState::is_crash_reporting_available() {
+                            return crate::crash_reporting::run_minidump_server(socket_name);
+                        }
+                        let _ = socket_name;
+                        return Ok(());
                     } else {
                         let _ = socket_name;
                         panic!("The minidump server is not supported on this platform");
@@ -753,7 +757,7 @@ fn init_common(launch_mode: &LaunchMode, timer: Option<&mut IntervalTimer>) -> R
     init_feature_flags();
 
     #[cfg(feature = "crash_reporting")]
-    if launch_mode.needs_crash_reporting() {
+    if ChannelState::is_crash_reporting_available() && launch_mode.needs_crash_reporting() {
         // Ensure that the main/root Sentry hub is initialized on the main
         // thread.  PtySpawner creates a background thread to receive logs from
         // the terminal server process, and we don't want it to be the host of
@@ -1269,22 +1273,28 @@ fn initialize_app(
             let is_crash_reporting_enabled = false;
         }
     }
-    // Send buffered pre-init errors to Sentry now that the client is ready.
     #[cfg(feature = "crash_reporting")]
-    for err in _pre_sentry_errors {
-        sentry::integrations::anyhow::capture_anyhow(&err);
+    {
+        // Send buffered pre-init errors to Sentry now that the client is ready.
+        if is_crash_reporting_enabled {
+            for err in _pre_sentry_errors {
+                sentry::integrations::anyhow::capture_anyhow(&err);
+            }
+        }
     }
     timer.mark_interval_end("INIT_CRASH_REPORTING");
 
-    if let LaunchMode::App { .. } = launch_mode {
-        autoupdate::check_and_report_update_errors(ctx);
+    if ChannelState::is_autoupdate_available() {
+        if let LaunchMode::App { .. } = launch_mode {
+            autoupdate::check_and_report_update_errors(ctx);
+        }
     }
 
     ctx.set_fallback_font_source_provider(|url| ::asset_cache::url_source(url));
 
     ctx.set_default_binding_validator(is_binding_cross_platform);
 
-    if FeatureFlag::Autoupdate.is_enabled() {
+    if ChannelState::is_autoupdate_available() && FeatureFlag::Autoupdate.is_enabled() {
         // Attempt to clean up any old executable, whether or not we were
         // explicitly launched as part of the auto-update process.  We may have
         // failed to remove the executable on a previous launch of the app and
@@ -2048,12 +2058,13 @@ fn app_callbacks(is_integration_test: bool) -> warpui::platform::AppCallbacks {
 
             // If there's a pending autoupdate, apply that before showing the unsaved changes
             // dialog. We apply the update first so that the dialog can force-terminate.
-            let applying_update = autoupdate::apply_pending_update(ctx, |ctx| {
-                // Once the deferred update is applied, re-terminate the app. This termination is
-                // cancellable so that we still show the unsaved changes dialog.
-                log::info!("Deferred autoupdate applied, terminating app");
-                ctx.terminate_app(TerminationMode::Cancellable, None);
-            });
+            let applying_update = ChannelState::is_autoupdate_available()
+                && autoupdate::apply_pending_update(ctx, |ctx| {
+                    // Once the deferred update is applied, re-terminate the app. This termination is
+                    // cancellable so that we still show the unsaved changes dialog.
+                    log::info!("Deferred autoupdate applied, terminating app");
+                    ctx.terminate_app(TerminationMode::Cancellable, None);
+                });
             if applying_update {
                 return ApproveTerminateResult::Cancel;
             }
