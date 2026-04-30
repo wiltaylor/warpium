@@ -187,10 +187,10 @@ pub enum SettingsViewEvent {
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub enum SettingsSection {
     About,
-    #[default]
     Account,
     MCPServers,
     BillingAndUsage,
+    #[default]
     Appearance,
     Features,
     Keybindings,
@@ -277,6 +277,35 @@ impl SettingsSection {
         matches!(self, Self::CloudEnvironments | Self::OzCloudAPIKeys)
     }
 
+    /// Returns true for settings sections that are intentionally hidden from
+    /// the settings UI and not selectable as direct destinations.
+    pub fn is_removed_from_settings(&self) -> bool {
+        matches!(
+            self,
+            Self::Account
+                | Self::MCPServers
+                | Self::Privacy
+                | Self::Referrals
+                | Self::Teams
+                | Self::WarpDrive
+                | Self::AgentMCPServers
+                | Self::Knowledge
+                | Self::CodeIndexing
+                | Self::CloudEnvironments
+                | Self::OzCloudAPIKeys
+        )
+    }
+
+    /// Resolves legacy/internal section requests to a visible settings page.
+    pub fn visible_destination(&self) -> Self {
+        match self {
+            Self::AI => Self::WarpAgent,
+            Self::Code => Self::EditorAndCodeReview,
+            section if section.is_removed_from_settings() => Self::Appearance,
+            section => *section,
+        }
+    }
+
     /// Maps subpage sections back to their parent page section for page lookup.
     /// Non-subpage sections return themselves.
     pub fn parent_page_section(&self) -> Self {
@@ -298,15 +327,13 @@ impl SettingsSection {
         &[
             Self::WarpAgent,
             Self::AgentProfiles,
-            Self::AgentMCPServers,
-            Self::Knowledge,
             Self::ThirdPartyCLIAgents,
         ]
     }
 
     /// The ordered list of Code subpage sections shown under the Code umbrella.
     pub fn code_subpages() -> &'static [Self] {
-        &[Self::CodeIndexing, Self::EditorAndCodeReview]
+        &[Self::EditorAndCodeReview]
     }
 
     /// The ordered list of Cloud platform subpage sections.
@@ -1183,7 +1210,6 @@ impl SettingsView {
         // Build sidebar nav items. AI page is presented as an "Agents" umbrella
         // with subpages; the actual AI SettingsPage is hidden from direct sidebar listing.
         let mut nav_items = vec![
-            SettingsNavItem::Page(SettingsSection::Account),
             SettingsNavItem::Umbrella(SettingsUmbrella::new(
                 "Agents",
                 SettingsSection::ai_subpages().to_vec(),
@@ -1191,37 +1217,18 @@ impl SettingsView {
             SettingsNavItem::Page(SettingsSection::BillingAndUsage),
             SettingsNavItem::Umbrella(SettingsUmbrella::new(
                 "Code",
-                vec![
-                    SettingsSection::CodeIndexing,
-                    SettingsSection::EditorAndCodeReview,
-                ],
+                SettingsSection::code_subpages().to_vec(),
             )),
-            SettingsNavItem::Umbrella(SettingsUmbrella::new(
-                "Cloud platform",
-                vec![
-                    SettingsSection::CloudEnvironments,
-                    SettingsSection::OzCloudAPIKeys,
-                ],
-            )),
-            SettingsNavItem::Page(SettingsSection::Teams),
             SettingsNavItem::Page(SettingsSection::Appearance),
             SettingsNavItem::Page(SettingsSection::Features),
             SettingsNavItem::Page(SettingsSection::Keybindings),
             SettingsNavItem::Page(SettingsSection::Warpify),
-            SettingsNavItem::Page(SettingsSection::Referrals),
             SettingsNavItem::Page(SettingsSection::SharedBlocks),
-            SettingsNavItem::Page(SettingsSection::WarpDrive),
-            SettingsNavItem::Page(SettingsSection::Privacy),
             SettingsNavItem::Page(SettingsSection::About),
         ];
 
         // Resolve the initial page: map internal backing-page sections to their default subpage.
-        let initial_page = match page {
-            Some(SettingsSection::AI) => SettingsSection::WarpAgent,
-            Some(SettingsSection::Code) => SettingsSection::CodeIndexing,
-            Some(section) if section.is_subpage() => section,
-            other => other.unwrap_or_default(),
-        };
+        let initial_page = page.unwrap_or_default().visible_destination();
 
         // Auto-expand the umbrella if the initial page is one of its subpages.
         if initial_page.is_subpage() {
@@ -1326,10 +1333,6 @@ impl SettingsView {
                     // widget set and run the filter to get a subpage-specific result.
                     self.subpage_filter.clear();
                     for &subpage_section in SettingsSection::ai_subpages() {
-                        if subpage_section == SettingsSection::AgentMCPServers {
-                            // AgentMCPServers has its own backing page; handled below.
-                            continue;
-                        }
                         if let Some(subpage) = AISubpage::from_section(subpage_section) {
                             self.ai_page_handle.update(ctx, |view, ctx| {
                                 view.set_active_subpage(Some(subpage), ctx);
@@ -1848,11 +1851,7 @@ impl SettingsView {
     ) {
         // Map internal backing-page sections to their default subpage.
         // External callers should use subpage variants directly.
-        let section = match section {
-            SettingsSection::AI => SettingsSection::WarpAgent,
-            SettingsSection::Code => SettingsSection::CodeIndexing,
-            other => other,
-        };
+        let section = section.visible_destination();
 
         // For AI subpages, the backing page is the AI page. Check it exists.
         let page_section = section.parent_page_section();
@@ -1944,6 +1943,10 @@ impl SettingsView {
     }
 
     fn should_render_page(&self, settings_page: &SettingsPage, app: &AppContext) -> bool {
+        if settings_page.section.is_removed_from_settings() {
+            return false;
+        }
+
         match &settings_page.view_handle {
             SettingsPageViewHandle::Main(v) => v.as_ref(app).should_render(app),
             SettingsPageViewHandle::Teams(v) => v.as_ref(app).should_render(app),
