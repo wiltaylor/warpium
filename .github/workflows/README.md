@@ -1,19 +1,22 @@
-# Release Configurations
+# Release Workflow
 
-This README file documents the format of the `release_configurations.json` file located in this directory.  The file defines Warp's various release channels, and provides values for the various variables that are necessary to run the `create_new_releases.yml` GitHub workflow.
+This fork keeps a single GitHub Actions workflow: `create_release.yml`.
 
-At some point, we may want to replace this document with a JSON schema file (which could be used to validate the correctness of the configuration as part of PR presubmit).
+Push a tag matching `v*` to build release artifacts and attach them to the GitHub Release for that tag. The workflow infers the channel from the tag name:
 
-## Fields
+* `*-dev` or `*-dev.*`: dev
+* `*-preview` or `*-preview.*`: preview
+* anything else matching `v*`: stable
 
-* **channel**: The channel's unique identifier
-* **type**: The release cadence.  At present, the valid values are "nightly" or "weekly".
-* **is_prerelease**: If true, the GitHub release for this channel will be marked as prerelease.
-* **is_autopush**: If true, this channel uses the "latest" keyword in `channel_versions.json` to automatically deploy new release candidates.  Non-autopush channels require a manual change in order to deploy them.
-* **release_base_name**: The base name of GitHub releases created for this channel.
-* **release_body_text**: The body text for GitHub releases created for this channel.
-* **sentry_project**: Which Sentry project should receive crash and error reports for this channel.
-* **sentry_environment**: The Sentry environment that corresponds to this channel.
-* **changelog_slack_channel**: The Slack channel where new changelogs will be posted whenever a new release candidates is cut.
-* **gcs_cache_control_value**: The value of the cache-control response header for release DMGs.
-  - **IMPORTANT!!**: the value of the cache-control header _must_ be all lowercase; uppercase values will not be respected by Cloud CDN.
+The workflow can also be run manually with a `tag` input.
+
+## Release Configuration
+
+`release_configurations.json` defines the channel metadata used for GitHub Release names and prerelease status.
+
+Fields still used by this fork:
+
+* **channel**: The channel identifier.
+* **is_prerelease**: Whether the GitHub Release is marked as a prerelease.
+* **release_base_name**: The base name for GitHub Releases.
+* **release_body_text**: The GitHub Release body text.

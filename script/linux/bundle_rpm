@@ -90,7 +90,7 @@ cp "$RPMBUILD_DIR/RPMS/$ARCH/$RPM_NAME" "$OUT_DIR"
 
 # If we're running on GitHub, sign the package using our signing key that
 # should have already been added to the gpg-agent with a preset passphrase.
-if [ "${GITHUB_ACTIONS}" == "true" ]; then
+if [ "${GITHUB_ACTIONS}" == "true" ] && [ "${SKIP_LINUX_PACKAGE_SIGNING:-false}" != "true" ]; then
   # Import our signing key's public key into rpm so the signature can be
   # verified.
   sudo rpm --import https://releases.warp.dev/linux/keys/warp.asc
