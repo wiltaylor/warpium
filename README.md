@@ -29,6 +29,14 @@ Build and run Warpium from source:
 ./script/run
 ```
 
+Install the release binary as `warpium`:
+
+```bash
+just install
+```
+
+The install recipe builds `warp-oss` with Cargo's release profile and copies it to `${CARGO_INSTALL_ROOT:-$HOME/.cargo}/bin/warpium`. Make sure that directory is on your `PATH`.
+
 For the broader engineering guide, see [WARP.md](WARP.md).
 
 ## Releases

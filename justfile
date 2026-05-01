@@ -23,6 +23,12 @@ build:
 build-app:
     cargo build -p warp
 
+# Install the Warpium app binary to Cargo's bin directory as `warpium`.
+install:
+    cargo build -p warp --bin warp-oss --release --features gui
+    mkdir -p "${CARGO_INSTALL_ROOT:-$HOME/.cargo}/bin"
+    cp target/release/warp-oss "${CARGO_INSTALL_ROOT:-$HOME/.cargo}/bin/warpium"
+
 # Fast typecheck for the Warp app library.
 check:
     cargo check -p warp --lib
