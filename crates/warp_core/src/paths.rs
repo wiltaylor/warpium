@@ -119,6 +119,14 @@ pub fn config_local_dir() -> PathBuf {
             // TODO(vorporeal): We should do something better than return a
             // relative path.
             dirs::home_dir().unwrap_or_default().join(macos_config_dir_name())
+        } else if #[cfg(target_os = "linux")] {
+            if ChannelState::channel() == Channel::Oss {
+                base_config_dir().join("warpium")
+            } else {
+                project_dirs()
+                    .map(|dirs| dirs.config_local_dir().to_owned())
+                    .unwrap_or_default()
+            }
         } else {
             project_dirs()
                 .map(|dirs| dirs.config_local_dir().to_owned())

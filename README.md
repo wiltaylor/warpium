@@ -2,6 +2,8 @@
 
 Warpium is a cut-down fork of [Warp](https://www.warp.dev), focused on the terminal client without Warp's built-in AI, cloud account, and hosted service integrations.
 
+![Warpium screenshot](images/screenshot.png)
+
 This fork keeps the native terminal experience and local build structure from the original Warpium/Warp codebase, while removing product surfaces and automation tied to Warp accounts, Warp AI, hosted agent workflows, and upstream release infrastructure.
 
 ## What This Fork Removes
@@ -10,14 +12,13 @@ The goal is a simpler, more self-contained terminal application. In this fork, t
 
 * Warp account sign-in and account-dependent flows
 * Built-in Warp AI and hosted agent features
-* Upstream issue/PR automation and release publishing infrastructure
 * Integrations that depend on Warp-operated cloud services
 
 Some upstream names, paths, and internal identifiers may still exist while the fork is being simplified.
 
-## Building Locally
+## Recipes
 
-To build and run Warpium from source:
+Build and run Warpium from source:
 
 ```bash
 ./script/bootstrap

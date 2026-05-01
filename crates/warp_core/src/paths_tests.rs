@@ -27,7 +27,7 @@ fn test_config_local_dir_path() {
         if #[cfg(target_os = "macos")] {
             assert_eq!(config_local_dir(), home_dir.join(".warp-oss"));
         } else if #[cfg(target_os = "linux")] {
-            assert_eq!(config_local_dir(), home_dir.join(".config/warp-oss"));
+            assert_eq!(config_local_dir(), home_dir.join(".config/warpium"));
         } else if #[cfg(windows)] {
             assert_eq!(config_local_dir(), home_dir.join("AppData\\Local\\warp\\WarpOss\\config"));
         } else {

@@ -6031,14 +6031,13 @@ impl Workspace {
     /// Builds the unified new-session menu items
     /// tab bar chevron and the vertical tab bar `+` button.
     ///
-    /// Order: Agent → Terminal (sidecar) → Cloud Oz → [tab configs] → separator → New worktree config (sidecar) → New tab config → separator → Reopen closed session.
+    /// Order: Terminal (sidecar) → [tab configs] → separator → New worktree config (sidecar) → New tab config → separator → Reopen closed session.
     fn unified_new_session_menu_items(
         &self,
         ctx: &mut ViewContext<Self>,
     ) -> Vec<MenuItem<WorkspaceAction>> {
         let mut menu_items = vec![];
 
-        let is_any_ai_enabled = AISettings::as_ref(ctx).is_any_ai_enabled(ctx);
         let ai_settings = AISettings::as_ref(ctx);
         let effective_default = ai_settings.default_session_mode(ctx);
         let default_tab_config_path = ai_settings.default_tab_config_path().to_string();
@@ -6046,18 +6045,7 @@ impl Workspace {
         let reopen_closed_session_shortcut_label =
             keybinding_name_to_display_string("app:reopen_closed_session", ctx);
 
-        // 1. Agent (if AI enabled)
-        if is_any_ai_enabled {
-            let mut agent_item = MenuItemFields::new("Agent")
-                .with_on_select_action(WorkspaceAction::AddAgentTab)
-                .with_icon(icons::Icon::LayoutAlt01);
-            if effective_default == DefaultSessionMode::Agent {
-                agent_item = agent_item.with_key_shortcut_label(shortcut_label.clone());
-            }
-            menu_items.push(agent_item.into_item());
-        }
-
-        // 2. Terminal (+ individual shells on Windows)
+        // 1. Terminal (+ individual shells on Windows)
         {
             // On Windows, list the default terminal and each available shell as
             // individual top-level items (no submenu) so each gets a sidecar.
@@ -6113,21 +6101,7 @@ impl Workspace {
             }
         }
 
-        // 3. Cloud Oz (if flags enabled)
-        if is_any_ai_enabled
-            && FeatureFlag::AgentView.is_enabled()
-            && FeatureFlag::CloudMode.is_enabled()
-        {
-            let mut cloud_item = MenuItemFields::new("Cloud Oz")
-                .with_on_select_action(WorkspaceAction::AddAmbientAgentTab)
-                .with_icon(icons::Icon::LayoutAlt01);
-            if effective_default == DefaultSessionMode::CloudAgent {
-                cloud_item = cloud_item.with_key_shortcut_label(shortcut_label.clone());
-            }
-            menu_items.push(cloud_item.into_item());
-        }
-
-        // 3b. Local Docker Sandbox
+        // 2. Local Docker Sandbox
         if FeatureFlag::LocalDockerSandbox.is_enabled() {
             let mut docker_item = MenuItemFields::new("Local Docker Sandbox")
                 .with_on_select_action(WorkspaceAction::AddDockerSandboxTab)
@@ -6138,7 +6112,7 @@ impl Workspace {
             menu_items.push(docker_item.into_item());
         }
 
-        // 4. User tab configs
+        // 3. User tab configs
         if FeatureFlag::TabConfigs.is_enabled() {
             let tab_configs = WarpConfig::as_ref(ctx).tab_configs().to_vec();
 
@@ -6185,7 +6159,7 @@ impl Workspace {
             }
         }
 
-        // 5. Separator + worktree config entry + new tab config
+        // 4. Separator + worktree config entry + new tab config
         if FeatureFlag::TabConfigs.is_enabled() {
             menu_items.push(MenuItem::Separator);
             menu_items.push(
@@ -6194,7 +6168,7 @@ impl Workspace {
                     .into_item(),
             );
 
-            // 6. New tab config — V0: opens the TOML template.
+            // 5. New tab config — V0: opens the TOML template.
             menu_items.push(
                 MenuItemFields::new("New tab config")
                     .with_on_select_action(WorkspaceAction::SelectNewSessionMenuItem(
