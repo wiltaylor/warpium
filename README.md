@@ -33,7 +33,7 @@ For the broader engineering guide, see [WARP.md](WARP.md).
 
 ## Releases
 
-This fork keeps a simplified GitHub Actions release workflow. Push to `master` with `release: true` or `pre-release: true` in the HEAD commit trailers to create a new release, or `re-release: true` to rebuild the latest release tag. The workflow builds the Warpium app binary in Cargo's release profile and attaches the archived binaries to the GitHub Release.
+This fork keeps a simplified GitHub Actions release workflow. Push to `master` with `release: true` or `pre-release: true` in the HEAD commit trailers to create a new release, or `re-release: true` to rebuild the latest release tag. The workflow builds Linux and Windows Warpium app binaries in Cargo's release profile and attaches the archived binaries to the GitHub Release.
 
 ## Licensing
 

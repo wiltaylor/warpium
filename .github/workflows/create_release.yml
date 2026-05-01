@@ -22,10 +22,6 @@ on:
         description: Build Windows binary.
         type: boolean
         default: true
-      build_macos:
-        description: Build macOS binary.
-        type: boolean
-        default: true
 
 permissions:
   contents: write
@@ -44,7 +40,6 @@ jobs:
       is_prerelease: ${{ steps.release.outputs.is_prerelease }}
       build_linux: ${{ steps.release.outputs.build_linux }}
       build_windows: ${{ steps.release.outputs.build_windows }}
-      build_macos: ${{ steps.release.outputs.build_macos }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -59,7 +54,6 @@ jobs:
           INPUT_RERELEASE: ${{ inputs.rerelease }}
           INPUT_BUILD_LINUX: ${{ inputs.build_linux }}
           INPUT_BUILD_WINDOWS: ${{ inputs.build_windows }}
-          INPUT_BUILD_MACOS: ${{ inputs.build_macos }}
         run: |
           RELEASE_TRAILER=$(git log -1 --format='%(trailers:key=release,valueonly)')
           PRERELEASE_TRAILER=$(git log -1 --format='%(trailers:key=pre-release,valueonly)')
@@ -100,7 +94,6 @@ jobs:
           echo "create_tag=$CREATE_TAG" >> "$GITHUB_OUTPUT"
           echo "build_linux=${INPUT_BUILD_LINUX:-true}" >> "$GITHUB_OUTPUT"
           echo "build_windows=${INPUT_BUILD_WINDOWS:-true}" >> "$GITHUB_OUTPUT"
-          echo "build_macos=${INPUT_BUILD_MACOS:-true}" >> "$GITHUB_OUTPUT"
 
       - name: Create release tag
         if: ${{ steps.release.outputs.create_tag == 'true' }}
@@ -158,53 +151,6 @@ jobs:
         with:
           tag_name: ${{ needs.prepare_release.outputs.release_tag }}
           files: warpium-linux-x86_64.tar.gz
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-  build_macos:
-    name: Build macOS binary (${{ matrix.arch }})
-    runs-on: macos-26-xlarge
-    needs: prepare_release
-    if: ${{ needs.prepare_release.outputs.do_release == 'true' && needs.prepare_release.outputs.build_macos == 'true' }}
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: aarch64
-            rust_target: aarch64-apple-darwin
-          - arch: x86_64
-            rust_target: x86_64-apple-darwin
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ needs.prepare_release.outputs.release_tag }}
-
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.RUST_TOOLCHAIN }}
-          targets: ${{ matrix.rust_target }}
-
-      - uses: ./.github/actions/prepare_environment
-        with:
-          target_os: macos
-          is_self_hosted: false
-
-      - name: Build release binary
-        run: cargo build -p warp --bin warp-oss --release --features gui --target ${{ matrix.rust_target }}
-        shell: bash
-
-      - name: Archive binary
-        run: |
-          mkdir -p dist
-          cp target/${{ matrix.rust_target }}/release/warp-oss dist/warpium
-          tar czf warpium-macos-${{ matrix.arch }}.tar.gz -C dist warpium
-        shell: bash
-
-      - name: Attach binary to release
-        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
-        with:
-          tag_name: ${{ needs.prepare_release.outputs.release_tag }}
-          files: warpium-macos-${{ matrix.arch }}.tar.gz
           token: ${{ secrets.GITHUB_TOKEN }}
 
   build_windows:

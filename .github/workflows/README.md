@@ -13,4 +13,4 @@ Supported trailers:
 
 The workflow can also be run manually with a `tag` input to rebuild an existing tag, or with no tag to create a new release.
 
-The release workflow only builds the Warpium app binary with Cargo's release profile. It does not build installers, Linux packages, CLI archives, or web bundles.
+The release workflow only builds Linux and Windows Warpium app binaries with Cargo's release profile. It does not build macOS artifacts, installers, Linux packages, CLI archives, or web bundles.
