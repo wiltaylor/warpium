@@ -97,8 +97,8 @@ UNIVERSAL_BINARY=true
 BUILD_BINARY=true
 TARGET_ARCH=""
 DMG_NAME_SUFFIX=""
-# By default we build dev bundles.
-RELEASE_CHANNEL="dev"
+# By default we build Warpium OSS bundles.
+RELEASE_CHANNEL="oss"
 FEATURES="release_bundle,cocoa_sentry,extern_plist"
 REGISTER_SERVICES=true
 DEBUG=false

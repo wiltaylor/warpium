@@ -2,21 +2,15 @@
 
 This fork keeps a single GitHub Actions workflow: `create_release.yml`.
 
-Push a tag matching `v*` to build release artifacts and attach them to the GitHub Release for that tag. The workflow infers the channel from the tag name:
+Push to `master` with a release trailer on the HEAD commit to build release binaries and attach them to a GitHub Release.
 
-* `*-dev` or `*-dev.*`: dev
-* `*-preview` or `*-preview.*`: preview
-* anything else matching `v*`: stable
+Supported trailers:
 
-The workflow can also be run manually with a `tag` input.
+* `release: true` creates a new release tag.
+* `pre-release: true` creates a new prerelease tag.
+* `re-release: true` rebuilds the latest `v*` tag.
+* `re-release: v...` rebuilds a specific existing tag.
 
-## Release Configuration
+The workflow can also be run manually with a `tag` input to rebuild an existing tag, or with no tag to create a new release.
 
-`release_configurations.json` defines the channel metadata used for GitHub Release names and prerelease status.
-
-Fields still used by this fork:
-
-* **channel**: The channel identifier.
-* **is_prerelease**: Whether the GitHub Release is marked as a prerelease.
-* **release_base_name**: The base name for GitHub Releases.
-* **release_body_text**: The GitHub Release body text.
+The release workflow only builds the Warpium app binary with Cargo's release profile. It does not build installers, Linux packages, CLI archives, or web bundles.

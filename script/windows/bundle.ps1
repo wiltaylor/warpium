@@ -3,14 +3,14 @@
 # Bundle the application for release.
 
 Param (
-    # Build dev bundles by default.
+    # Build Warpium OSS bundles by default.
     [Switch]$DEBUG_BUILD = $False,
 
     [Alias('check-only')]
     [Switch]$CHECK_ONLY,
 
     [ValidateSet('local', 'dev', 'preview', 'stable', 'oss')]
-    [String]$CHANNEL = 'dev',
+    [String]$CHANNEL = 'oss',
 
     [Alias('release-tag')]
     [String]$RELEASE_TAG = '',

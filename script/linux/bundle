@@ -19,8 +19,8 @@ cleanup() {
 # Run cleanup() when the script terminates (whether it succeeded or failed).
 trap cleanup EXIT
 
-# By default we build dev bundles.
-RELEASE_CHANNEL="dev"
+# By default we build Warpium OSS bundles.
+RELEASE_CHANNEL="oss"
 FEATURES="release_bundle,crash_reporting"
 PACKAGES=( appimage )
 BUILD="true"
