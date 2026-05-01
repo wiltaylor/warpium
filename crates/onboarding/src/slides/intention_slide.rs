@@ -78,7 +78,7 @@ impl IntentionSlide {
 
         let title = appearance
             .ui_builder()
-            .paragraph("Welcome to Warp")
+            .paragraph("Welcome to Warpium")
             .with_style(UiComponentStyles {
                 font_size: Some(36.),
                 font_weight: Some(Weight::Medium),
@@ -112,11 +112,8 @@ impl IntentionSlide {
     }
 
     fn render_options(&self, appearance: &Appearance, _selected_index: usize) -> Box<dyn Element> {
-        let terminal_card = self.render_terminal_card(
-            appearance,
-            true,
-            self.classic_terminal_mouse_state.clone(),
-        );
+        let terminal_card =
+            self.render_terminal_card(appearance, true, self.classic_terminal_mouse_state.clone());
 
         Container::new(
             Flex::column()
@@ -286,11 +283,7 @@ impl IntentionSlide {
             },
         );
 
-        let (step_index, step_count) = if new_settings_modes {
-            (0, 4)
-        } else {
-            (1, 4)
-        };
+        let (step_index, step_count) = if new_settings_modes { (0, 4) } else { (1, 4) };
         bottom_nav::onboarding_bottom_nav(
             appearance,
             step_index,
@@ -301,9 +294,8 @@ impl IntentionSlide {
     }
 
     /// All onboarding image paths used by the intention slide visual.
-    pub(crate) const VISUAL_IMAGE_PATHS: &'static [&'static str] = &[
-        "async/png/onboarding/welcome_terminal.png",
-    ];
+    pub(crate) const VISUAL_IMAGE_PATHS: &'static [&'static str] =
+        &["async/png/onboarding/welcome_terminal.png"];
 
     fn render_visual(&self, appearance: &Appearance, _selected_index: usize) -> Box<dyn Element> {
         let theme = appearance.theme();

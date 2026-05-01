@@ -6,24 +6,85 @@ use crate::OnboardingIntention;
 
 use ui_components::{button, Component as _, Options as _};
 use warp_core::ui::appearance::Appearance;
-use warp_core::ui::theme::color::internal_colors;
+use warp_core::ui::icons::Icon;
+use warp_core::ui::theme::{color::internal_colors, Fill};
 use warpui::prelude::Align;
 use warpui::{
     elements::{
-        ClippedScrollStateHandle, Container, CrossAxisAlignment, Flex, FormattedTextElement,
-        MainAxisSize, MouseStateHandle, ParentElement,
+        Border, ClippedScrollStateHandle, ConstrainedBox, Container, CornerRadius,
+        CrossAxisAlignment, Flex, FormattedTextElement, Hoverable, Icon as WarpUiIcon,
+        MainAxisAlignment, MainAxisSize, MouseStateHandle, ParentElement, Radius, Text,
     },
-    fonts::Weight,
+    fonts::{Properties, Weight},
     keymap::Keystroke,
+    platform::Cursor,
     text_layout::TextAlignment,
     ui_components::components::{UiComponent as _, UiComponentStyles},
     AppContext, Element, Entity, ModelHandle, SingletonEntity as _, TypedActionView, View,
     ViewContext,
 };
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum ThirdPartyAgentHandler {
+    ClaudeCode,
+    #[default]
+    Codex,
+    Gemini,
+}
+
+impl ThirdPartyAgentHandler {
+    pub const ALL: [Self; 3] = [Self::ClaudeCode, Self::Codex, Self::Gemini];
+
+    pub fn display_name(self) -> &'static str {
+        match self {
+            Self::ClaudeCode => "Claude Code",
+            Self::Codex => "Codex",
+            Self::Gemini => "Gemini",
+        }
+    }
+
+    pub fn serialized_name(self) -> &'static str {
+        match self {
+            Self::ClaudeCode => "Claude",
+            Self::Codex => "Codex",
+            Self::Gemini => "Gemini",
+        }
+    }
+
+    fn icon(self) -> Icon {
+        match self {
+            Self::ClaudeCode => Icon::ClaudeLogo,
+            Self::Codex => Icon::OpenAILogo,
+            Self::Gemini => Icon::GeminiLogo,
+        }
+    }
+
+    fn previous(self) -> Self {
+        let index = Self::ALL
+            .iter()
+            .position(|agent| *agent == self)
+            .unwrap_or_default();
+        let previous = if index == 0 {
+            Self::ALL.len() - 1
+        } else {
+            index - 1
+        };
+        Self::ALL[previous]
+    }
+
+    fn next(self) -> Self {
+        let index = Self::ALL
+            .iter()
+            .position(|agent| *agent == self)
+            .unwrap_or_default();
+        Self::ALL[(index + 1) % Self::ALL.len()]
+    }
+}
+
 /// Which setting card is currently expanded.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SettingCard {
+    AgentCommand,
     CliToolbar,
     Notifications,
 }
@@ -31,6 +92,7 @@ pub enum SettingCard {
 #[derive(Debug, Clone)]
 pub enum ThirdPartySlideAction {
     SelectSettingCard { card: SettingCard },
+    SelectAgentCommandHandler { agent: ThirdPartyAgentHandler },
     SetCliAgentToolbarEnabled { enabled: bool },
     SetShowAgentNotifications { enabled: bool },
     BackClicked,
@@ -40,6 +102,8 @@ pub enum ThirdPartySlideAction {
 pub struct ThirdPartySlide {
     onboarding_state: ModelHandle<OnboardingStateModel>,
     selected_setting: Option<SettingCard>,
+    agent_command_card_mouse_state: MouseStateHandle,
+    agent_command_option_mouse_states: Vec<MouseStateHandle>,
     cli_toolbar_card_mouse_state: MouseStateHandle,
     notifications_card_mouse_state: MouseStateHandle,
     cli_toolbar_seg_left_mouse: MouseStateHandle,
@@ -65,6 +129,11 @@ impl ThirdPartySlide {
         Self {
             onboarding_state,
             selected_setting: None,
+            agent_command_card_mouse_state: MouseStateHandle::default(),
+            agent_command_option_mouse_states: ThirdPartyAgentHandler::ALL
+                .iter()
+                .map(|_| MouseStateHandle::default())
+                .collect(),
             cli_toolbar_card_mouse_state: MouseStateHandle::default(),
             notifications_card_mouse_state: MouseStateHandle::default(),
             cli_toolbar_seg_left_mouse: MouseStateHandle::default(),
@@ -101,6 +170,13 @@ impl ThirdPartySlide {
             .show_agent_notifications
     }
 
+    fn agent_command_handler(&self, app: &AppContext) -> ThirdPartyAgentHandler {
+        self.onboarding_state
+            .as_ref(app)
+            .agent_settings()
+            .agent_command_handler
+    }
+
     fn model_intention(&self, app: &AppContext) -> OnboardingIntention {
         *self.onboarding_state.as_ref(app).intention()
     }
@@ -108,6 +184,7 @@ impl ThirdPartySlide {
     fn render_content(
         &self,
         appearance: &Appearance,
+        agent_command_handler: ThirdPartyAgentHandler,
         cli_toolbar_enabled: bool,
         show_agent_notifications: bool,
         intention: OnboardingIntention,
@@ -116,6 +193,7 @@ impl ThirdPartySlide {
 
         let mut sections = vec![
             self.render_header(appearance),
+            self.render_agent_handler_section(appearance, agent_command_handler),
             self.render_toolbar_section(appearance, cli_toolbar_enabled),
         ];
 
@@ -167,6 +245,260 @@ impl ThirdPartySlide {
             .finish()
     }
 
+    fn render_agent_handler_section(
+        &self,
+        appearance: &Appearance,
+        selected_agent: ThirdPartyAgentHandler,
+    ) -> Box<dyn Element> {
+        let is_selected = self.selected_setting == Some(SettingCard::AgentCommand);
+        let card = if is_selected {
+            self.render_agent_handler_expanded(appearance, selected_agent)
+        } else {
+            self.render_agent_handler_collapsed(appearance, selected_agent)
+        };
+
+        Container::new(
+            Flex::column()
+                .with_main_axis_size(MainAxisSize::Min)
+                .with_cross_axis_alignment(CrossAxisAlignment::Stretch)
+                .with_child(card)
+                .finish(),
+        )
+        .with_margin_top(40.)
+        .finish()
+    }
+
+    fn render_agent_handler_collapsed(
+        &self,
+        appearance: &Appearance,
+        selected_agent: ThirdPartyAgentHandler,
+    ) -> Box<dyn Element> {
+        let theme = appearance.theme();
+        let ui_font_family = appearance.ui_font_family();
+        let text_color = internal_colors::text_sub(theme, theme.background().into_solid());
+        let border_color = Fill::Solid(internal_colors::neutral_4(theme));
+        let subtitle = selected_agent.display_name().to_string();
+
+        Hoverable::new(self.agent_command_card_mouse_state.clone(), move |_| {
+            let title_el =
+                FormattedTextElement::from_str("Browser /agent handler", ui_font_family, 16.)
+                    .with_color(text_color)
+                    .with_weight(Weight::Normal)
+                    .with_alignment(TextAlignment::Left)
+                    .with_line_height_ratio(1.0)
+                    .finish();
+
+            let sub_el = Text::new(subtitle.clone(), ui_font_family, 12.)
+                .with_color(text_color)
+                .with_line_height_ratio(1.0)
+                .finish();
+
+            let content = Flex::column()
+                .with_main_axis_size(MainAxisSize::Min)
+                .with_cross_axis_alignment(CrossAxisAlignment::Start)
+                .with_child(title_el)
+                .with_child(Container::new(sub_el).with_margin_top(12.).finish())
+                .finish();
+
+            Container::new(content)
+                .with_uniform_padding(24.)
+                .with_corner_radius(CornerRadius::with_all(Radius::Pixels(8.)))
+                .with_border(Border::all(1.).with_border_fill(border_color))
+                .finish()
+        })
+        .with_cursor(Cursor::PointingHand)
+        .on_click(|ctx, _, _| {
+            ctx.dispatch_typed_action(ThirdPartySlideAction::SelectSettingCard {
+                card: SettingCard::AgentCommand,
+            });
+        })
+        .finish()
+    }
+
+    fn render_agent_handler_expanded(
+        &self,
+        appearance: &Appearance,
+        selected_agent: ThirdPartyAgentHandler,
+    ) -> Box<dyn Element> {
+        let theme = appearance.theme();
+        let ui_font_family = appearance.ui_font_family();
+        let text_color = internal_colors::text_main(theme, theme.background().into_solid());
+        let border_color = theme.accent();
+        let background = internal_colors::accent_overlay_1(theme);
+
+        let title_el =
+            FormattedTextElement::from_str("Browser /agent handler", ui_font_family, 16.)
+                .with_color(text_color)
+                .with_weight(Weight::Normal)
+                .with_alignment(TextAlignment::Left)
+                .with_line_height_ratio(1.0)
+                .finish();
+
+        let selected_control = self.render_agent_handler_select(appearance, selected_agent);
+        let options = self.render_agent_handler_options(appearance, selected_agent);
+
+        Container::new(
+            Flex::column()
+                .with_cross_axis_alignment(CrossAxisAlignment::Stretch)
+                .with_child(title_el)
+                .with_child(
+                    Container::new(selected_control)
+                        .with_margin_top(12.)
+                        .finish(),
+                )
+                .with_child(Container::new(options).with_margin_top(8.).finish())
+                .finish(),
+        )
+        .with_uniform_padding(24.)
+        .with_corner_radius(CornerRadius::with_all(Radius::Pixels(8.)))
+        .with_border(Border::all(1.).with_border_fill(border_color))
+        .with_background(background)
+        .finish()
+    }
+
+    fn render_agent_handler_select(
+        &self,
+        appearance: &Appearance,
+        selected_agent: ThirdPartyAgentHandler,
+    ) -> Box<dyn Element> {
+        let theme = appearance.theme();
+        let color = internal_colors::text_main(theme, theme.background().into_solid());
+        let icon = selected_agent.icon();
+        let label = selected_agent.display_name().to_string();
+        let ui_font_family = appearance.ui_font_family();
+
+        let icon_el = ConstrainedBox::new(Box::new(icon.to_warpui_icon(color.into())))
+            .with_width(14.)
+            .with_height(14.)
+            .finish();
+        let label_el = Text::new(label, ui_font_family, 14.)
+            .with_color(color)
+            .with_style(Properties {
+                weight: Weight::Normal,
+                ..Default::default()
+            })
+            .with_line_height_ratio(1.0)
+            .finish();
+        let chevron = ConstrainedBox::new(Box::new(WarpUiIcon::new(
+            "bundled/svg/chevron-down.svg",
+            color,
+        )))
+        .with_width(14.)
+        .with_height(14.)
+        .finish();
+
+        Container::new(
+            ConstrainedBox::new(
+                Flex::row()
+                    .with_main_axis_size(MainAxisSize::Max)
+                    .with_main_axis_alignment(MainAxisAlignment::SpaceBetween)
+                    .with_cross_axis_alignment(CrossAxisAlignment::Center)
+                    .with_child(
+                        Flex::row()
+                            .with_cross_axis_alignment(CrossAxisAlignment::Center)
+                            .with_child(icon_el)
+                            .with_child(Container::new(label_el).with_margin_left(8.).finish())
+                            .finish(),
+                    )
+                    .with_child(chevron)
+                    .finish(),
+            )
+            .with_min_height(32.)
+            .finish(),
+        )
+        .with_horizontal_padding(12.)
+        .with_corner_radius(CornerRadius::with_all(Radius::Pixels(6.)))
+        .with_border(Border::all(1.).with_border_color(internal_colors::neutral_4(theme)))
+        .with_background(internal_colors::fg_overlay_1(theme))
+        .finish()
+    }
+
+    fn render_agent_handler_options(
+        &self,
+        appearance: &Appearance,
+        selected_agent: ThirdPartyAgentHandler,
+    ) -> Box<dyn Element> {
+        let mut column = Flex::column().with_cross_axis_alignment(CrossAxisAlignment::Stretch);
+        for (index, agent) in ThirdPartyAgentHandler::ALL.iter().copied().enumerate() {
+            let mouse_state = self
+                .agent_command_option_mouse_states
+                .get(index)
+                .cloned()
+                .unwrap_or_default();
+            let row = self.render_agent_handler_option(
+                appearance,
+                agent,
+                agent == selected_agent,
+                mouse_state,
+            );
+            column = column.with_child(
+                Container::new(row)
+                    .with_margin_top(if index == 0 { 0. } else { 4. })
+                    .finish(),
+            );
+        }
+        column.finish()
+    }
+
+    fn render_agent_handler_option(
+        &self,
+        appearance: &Appearance,
+        agent: ThirdPartyAgentHandler,
+        is_selected: bool,
+        mouse_state: MouseStateHandle,
+    ) -> Box<dyn Element> {
+        let theme = appearance.theme();
+        let background_for_text = theme.background().into_solid();
+        let text_color = if is_selected {
+            internal_colors::accent_fg_strong(theme).into_solid()
+        } else {
+            internal_colors::text_sub(theme, background_for_text)
+        };
+        let background = if is_selected {
+            Some(internal_colors::accent_overlay_3(theme))
+        } else {
+            None
+        };
+        let ui_font_family = appearance.ui_font_family();
+        let label = agent.display_name().to_string();
+        let icon = agent.icon();
+
+        Hoverable::new(mouse_state, move |_| {
+            let icon_el = ConstrainedBox::new(Box::new(icon.to_warpui_icon(text_color.into())))
+                .with_width(14.)
+                .with_height(14.)
+                .finish();
+            let label_el = Text::new(label.clone(), ui_font_family, 14.)
+                .with_color(text_color)
+                .with_style(Properties {
+                    weight: Weight::Normal,
+                    ..Default::default()
+                })
+                .with_line_height_ratio(1.0)
+                .finish();
+
+            let mut container = Container::new(
+                Flex::row()
+                    .with_cross_axis_alignment(CrossAxisAlignment::Center)
+                    .with_child(icon_el)
+                    .with_child(Container::new(label_el).with_margin_left(8.).finish())
+                    .finish(),
+            )
+            .with_horizontal_padding(12.)
+            .with_vertical_padding(8.)
+            .with_corner_radius(CornerRadius::with_all(Radius::Pixels(6.)));
+            if let Some(background) = background {
+                container = container.with_background(background);
+            }
+            container.finish()
+        })
+        .with_cursor(Cursor::PointingHand)
+        .on_click(move |ctx, _, _| {
+            ctx.dispatch_typed_action(ThirdPartySlideAction::SelectAgentCommandHandler { agent });
+        })
+        .finish()
+    }
+
     fn render_toolbar_section(
         &self,
         appearance: &Appearance,
@@ -211,7 +543,7 @@ impl ThirdPartySlide {
                 .with_child(card)
                 .finish(),
         )
-        .with_margin_top(40.)
+        .with_margin_top(16.)
         .finish()
     }
 
@@ -345,6 +677,7 @@ impl View for ThirdPartySlide {
 
     fn render(&self, app: &AppContext) -> Box<dyn Element> {
         let appearance = Appearance::as_ref(app);
+        let agent_command_handler = self.agent_command_handler(app);
         let cli_toolbar_enabled = self.cli_agent_toolbar_enabled(app);
         let show_agent_notifications = self.show_agent_notifications(app);
         let intention = self.model_intention(app);
@@ -358,6 +691,7 @@ impl View for ThirdPartySlide {
             || {
                 self.render_content(
                     appearance,
+                    agent_command_handler,
                     cli_toolbar_enabled,
                     show_agent_notifications,
                     intention,
@@ -384,8 +718,9 @@ impl ThirdPartySlide {
 impl OnboardingSlide for ThirdPartySlide {
     fn on_up(&mut self, ctx: &mut ViewContext<Self>) {
         let new_card = match self.selected_setting {
-            None => SettingCard::CliToolbar,
-            Some(SettingCard::CliToolbar) => SettingCard::CliToolbar,
+            None => SettingCard::AgentCommand,
+            Some(SettingCard::AgentCommand) => SettingCard::AgentCommand,
+            Some(SettingCard::CliToolbar) => SettingCard::AgentCommand,
             Some(SettingCard::Notifications) => SettingCard::CliToolbar,
         };
         self.selected_setting = Some(new_card);
@@ -395,7 +730,8 @@ impl OnboardingSlide for ThirdPartySlide {
     fn on_down(&mut self, ctx: &mut ViewContext<Self>) {
         let is_terminal = matches!(self.model_intention(ctx), OnboardingIntention::Terminal);
         let new_card = match self.selected_setting {
-            None => SettingCard::CliToolbar,
+            None => SettingCard::AgentCommand,
+            Some(SettingCard::AgentCommand) => SettingCard::CliToolbar,
             Some(SettingCard::CliToolbar) => {
                 if is_terminal {
                     SettingCard::Notifications
@@ -411,6 +747,13 @@ impl OnboardingSlide for ThirdPartySlide {
 
     fn on_left(&mut self, ctx: &mut ViewContext<Self>) {
         match self.selected_setting {
+            Some(SettingCard::AgentCommand) => {
+                let current = self.agent_command_handler(ctx);
+                self.onboarding_state.update(ctx, |model, ctx| {
+                    model.set_agent_command_handler(current.previous(), ctx);
+                });
+                ctx.notify();
+            }
             Some(SettingCard::CliToolbar) => {
                 self.onboarding_state.update(ctx, |model, ctx| {
                     model.set_cli_agent_toolbar_enabled(true, ctx);
@@ -429,6 +772,13 @@ impl OnboardingSlide for ThirdPartySlide {
 
     fn on_right(&mut self, ctx: &mut ViewContext<Self>) {
         match self.selected_setting {
+            Some(SettingCard::AgentCommand) => {
+                let current = self.agent_command_handler(ctx);
+                self.onboarding_state.update(ctx, |model, ctx| {
+                    model.set_agent_command_handler(current.next(), ctx);
+                });
+                ctx.notify();
+            }
             Some(SettingCard::CliToolbar) => {
                 self.onboarding_state.update(ctx, |model, ctx| {
                     model.set_cli_agent_toolbar_enabled(false, ctx);
@@ -457,6 +807,13 @@ impl TypedActionView for ThirdPartySlide {
         match action {
             ThirdPartySlideAction::SelectSettingCard { card } => {
                 self.select_setting_card(*card, ctx);
+            }
+            ThirdPartySlideAction::SelectAgentCommandHandler { agent } => {
+                let value = *agent;
+                self.onboarding_state.update(ctx, |model, ctx| {
+                    model.set_agent_command_handler(value, ctx);
+                });
+                ctx.notify();
             }
             ThirdPartySlideAction::SetCliAgentToolbarEnabled { enabled } => {
                 let value = *enabled;

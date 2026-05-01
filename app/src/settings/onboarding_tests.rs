@@ -1,6 +1,8 @@
 use ai::LLMId;
 use chrono::{DateTime, Utc};
-use onboarding::slides::{AgentAutonomy, AgentDevelopmentSettings, ProjectOnboardingSettings};
+use onboarding::slides::{
+    AgentAutonomy, AgentDevelopmentSettings, ProjectOnboardingSettings, ThirdPartyAgentHandler,
+};
 use onboarding::SelectedSettings;
 use settings::Setting as _;
 use warpui::{App, SingletonEntity};
@@ -123,6 +125,7 @@ fn apply_onboarding_settings_preserves_existing_cloud_profile_on_existing_user_l
                 disable_oz: false,
                 show_agent_notifications: true,
                 use_claude_code_provider: false,
+                agent_command_handler: ThirdPartyAgentHandler::Codex,
             },
             project_settings: ProjectOnboardingSettings::default(),
             ui_customization: None,
@@ -133,6 +136,14 @@ fn apply_onboarding_settings_preserves_existing_cloud_profile_on_existing_user_l
             assert_eq!(
                 *AISettings::as_ref(ctx).agent_mode_provider.value(),
                 AgentModeProvider::None
+            );
+            assert_eq!(
+                AISettings::as_ref(ctx)
+                    .cli_agent_footer_enabled_commands
+                    .value()
+                    .get(r"^/agent(?:\s|$)")
+                    .map(String::as_str),
+                Some("Codex")
             );
         });
 

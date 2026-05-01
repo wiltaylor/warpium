@@ -1,5 +1,6 @@
 use crate::slides::{
     AgentAutonomy, AgentDevelopmentSettings, OnboardingModelInfo, ProjectOnboardingSettings,
+    ThirdPartyAgentHandler,
 };
 use crate::telemetry::OnboardingEvent;
 use crate::OnboardingIntention;
@@ -68,6 +69,7 @@ pub enum SelectedSettings {
         ui_customization: Option<UICustomizationSettings>,
         cli_agent_toolbar_enabled: bool,
         show_agent_notifications: bool,
+        agent_command_handler: ThirdPartyAgentHandler,
     },
     AgentDrivenDevelopment {
         agent_settings: AgentDevelopmentSettings,
@@ -213,6 +215,7 @@ impl OnboardingStateModel {
                 ui_customization,
                 cli_agent_toolbar_enabled: self.agent_settings.cli_agent_toolbar_enabled,
                 show_agent_notifications: self.agent_settings.show_agent_notifications,
+                agent_command_handler: self.agent_settings.agent_command_handler,
             },
             OnboardingIntention::AgentDrivenDevelopment => {
                 SelectedSettings::AgentDrivenDevelopment {
@@ -227,6 +230,7 @@ impl OnboardingStateModel {
                         session_default: self.agent_settings.session_default,
                         disable_oz: self.agent_settings.disable_oz,
                         use_claude_code_provider: self.agent_settings.use_claude_code_provider,
+                        agent_command_handler: self.agent_settings.agent_command_handler,
                         // Agent intention always has notifications enabled (no toggle shown).
                         show_agent_notifications: true,
                     },
@@ -416,6 +420,25 @@ impl OnboardingStateModel {
             ctx
         );
         self.agent_settings.show_agent_notifications = value;
+        ctx.notify();
+    }
+
+    pub(crate) fn set_agent_command_handler(
+        &mut self,
+        value: ThirdPartyAgentHandler,
+        ctx: &mut ModelContext<Self>,
+    ) {
+        if self.agent_settings.agent_command_handler == value {
+            return;
+        }
+        send_telemetry_from_ctx!(
+            OnboardingEvent::SettingChanged {
+                setting: "agent_command_handler".to_string(),
+                value: value.serialized_name().to_string(),
+            },
+            ctx
+        );
+        self.agent_settings.agent_command_handler = value;
         ctx.notify();
     }
 

@@ -6,6 +6,10 @@ Warpium is a cut-down fork of [Warp](https://www.warp.dev), focused on the termi
 
 This fork keeps the native terminal experience and local build structure from the original Warpium/Warp codebase, while removing product surfaces and automation tied to Warp accounts, Warp AI, hosted agent workflows, and upstream release infrastructure.
 
+## What This Fork Keeps
+
+Warpium keeps local terminal workflows and adds support for routing `/agent` mode to third-party CLI agents such as Claude Code, Codex, and Gemini instead of Warp-hosted agent services.
+
 ## What This Fork Removes
 
 The goal is a simpler, more self-contained terminal application. In this fork, the built-in Warp AI and account code is removed or being removed, including:

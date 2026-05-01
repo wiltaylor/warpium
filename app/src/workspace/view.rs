@@ -8263,10 +8263,6 @@ impl Workspace {
             MenuItemFields::new("Keyboard shortcuts")
                 .with_on_select_action(WorkspaceAction::ToggleKeybindingsPage)
                 .into_item(),
-            MenuItem::Separator,
-            MenuItemFields::new("Documentation")
-                .with_on_select_action(WorkspaceAction::ViewUserDocs)
-                .into_item(),
         ]);
 
         #[cfg(not(target_family = "wasm"))]
@@ -18292,13 +18288,14 @@ impl Workspace {
                 AutoupdateStage::UnableToUpdateToNewVersion { new_version }
                     if !self.autoupdate_unable_to_update_banner_dismissed =>
                 {
-                    let description =
-                        if is_incoming_version_past_current(new_version.soft_cutoff.as_deref()) {
-                            VERSION_DEPRECATION_WITHOUT_PERMISSIONS_BANNER_TEXT.to_owned()
-                        } else {
-                            "A new version is available but Warpium is unable to perform the update."
-                                .to_owned()
-                        };
+                    let description = if is_incoming_version_past_current(
+                        new_version.soft_cutoff.as_deref(),
+                    ) {
+                        VERSION_DEPRECATION_WITHOUT_PERMISSIONS_BANNER_TEXT.to_owned()
+                    } else {
+                        "A new version is available but Warpium is unable to perform the update."
+                            .to_owned()
+                    };
 
                     Some(WorkspaceBannerFields {
                         banner_type: WorkspaceBanner::UnableToUpdateToNewVersion,

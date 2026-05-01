@@ -46,6 +46,11 @@ use super::{
 use super::utils::{BLOCKS_KEYBINDINGS, INPUT_EDITOR_KEYBINDINGS, TERMINAL_KEYBINDINGS};
 
 const KEYBINDINGS_PAGE_SHORTCUT: &str = "workspace:toggle_keybindings_page";
+const HIDDEN_KEYBINDINGS: &[&str] = &[
+    "workspace:link_to_slack",
+    "workspace:link_to_user_docs",
+    "workspace:send_feedback",
+];
 const LINK_WIDTH: f32 = 30.;
 
 #[derive(Default)]
@@ -149,6 +154,7 @@ impl KeybindingsView {
             .chain(get_additional_keybindings())
             .filter(|a| {
                 a.trigger.is_some()
+                    && !HIDDEN_KEYBINDINGS.contains(&a.name.as_str())
                     && !a
                         .description
                         .in_context(DescriptionContext::Default)

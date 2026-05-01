@@ -4,13 +4,16 @@ use crate::drive::settings::WarpDriveSettings;
 use crate::report_if_error;
 use crate::settings::ai::{AgentModeProvider, DefaultSessionMode};
 use crate::settings::{AISettings, CodeSettings};
+use crate::terminal::CLIAgent;
 use crate::workspace::tab_settings::TabSettings;
 use crate::workspaces::user_workspaces::UserWorkspaces;
-use onboarding::slides::{AgentAutonomy, AgentDevelopmentSettings};
+use onboarding::slides::{AgentAutonomy, AgentDevelopmentSettings, ThirdPartyAgentHandler};
 use onboarding::{SelectedSettings, SessionDefault, UICustomizationSettings};
 use settings::Setting as _;
 use warp_core::features::FeatureFlag;
 use warpui::{AppContext, SingletonEntity as _};
+
+const BROWSER_AGENT_COMMAND_PATTERN: &str = r"^/agent(?:\s|$)";
 
 /// Applies onboarding settings based on the user's selected mode.
 pub fn apply_onboarding_settings(selected_settings: &SelectedSettings, app: &mut AppContext) {
@@ -31,6 +34,7 @@ pub fn apply_onboarding_settings(selected_settings: &SelectedSettings, app: &mut
             ui_customization,
             cli_agent_toolbar_enabled,
             show_agent_notifications,
+            agent_command_handler,
         } => {
             // In old onboarding, there's nothing to set for terminal intent.
             if !FeatureFlag::OpenWarpNewSettingsModes.is_enabled() {
@@ -47,6 +51,7 @@ pub fn apply_onboarding_settings(selected_settings: &SelectedSettings, app: &mut
                         .show_agent_notifications
                         .set_value(*show_agent_notifications, ctx));
                 });
+                apply_agent_command_handler(*agent_command_handler, app);
                 false
             }
         }
@@ -57,6 +62,14 @@ pub fn apply_onboarding_settings(selected_settings: &SelectedSettings, app: &mut
             report_if_error!(settings.is_any_ai_enabled.set_value(is_ai_enabled, ctx));
         });
     }
+}
+
+fn apply_agent_command_handler(handler: ThirdPartyAgentHandler, app: &mut AppContext) {
+    let agent = CLIAgent::from_serialized_name(handler.serialized_name());
+    AISettings::handle(app).update(app, |settings, ctx| {
+        settings.add_cli_agent_footer_enabled_command(BROWSER_AGENT_COMMAND_PATTERN, ctx);
+        settings.set_cli_agent_for_command(BROWSER_AGENT_COMMAND_PATTERN, Some(agent), ctx);
+    });
 }
 
 /// Applies the explicit UI customization settings chosen during the
@@ -134,6 +147,7 @@ fn apply_agent_settings(agent_settings: &AgentDevelopmentSettings, app: &mut App
         };
         report_if_error!(settings.agent_mode_provider.set_value(provider, ctx));
     });
+    apply_agent_command_handler(agent_settings.agent_command_handler, app);
 
     AIExecutionProfilesModel::handle(app).update(app, |profiles, ctx| {
         let default_profile_info = profiles.default_profile(ctx);

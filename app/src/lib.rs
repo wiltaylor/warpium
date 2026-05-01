@@ -503,6 +503,7 @@ impl LaunchMode {
     /// Log destination for this mode.
     fn log_destination(&self) -> Option<LogDestination> {
         match self {
+            LaunchMode::App { .. } => Some(LogDestination::File),
             LaunchMode::CommandLine { debug, .. } => {
                 if *debug {
                     Some(LogDestination::Stderr)
@@ -513,7 +514,17 @@ impl LaunchMode {
             // Proxy must log to stderr because stdout is the protocol channel.
             LaunchMode::RemoteServerProxy => Some(LogDestination::Stderr),
             LaunchMode::RemoteServerDaemon => Some(LogDestination::File),
-            LaunchMode::App { .. } | LaunchMode::Test { .. } => None,
+            LaunchMode::Test { .. } => None,
+        }
+    }
+
+    /// Whether logs should use the CLI log subdirectory and rotation policy.
+    fn uses_cli_logging(&self) -> bool {
+        match self {
+            LaunchMode::CommandLine { .. }
+            | LaunchMode::RemoteServerProxy
+            | LaunchMode::RemoteServerDaemon => true,
+            LaunchMode::App { .. } | LaunchMode::Test { .. } => false,
         }
     }
 
@@ -770,7 +781,7 @@ fn init_common(launch_mode: &LaunchMode, timer: Option<&mut IntervalTimer>) -> R
     }
 
     let log_destination = launch_mode.log_destination();
-    let is_cli = log_destination.is_some();
+    let is_cli = launch_mode.uses_cli_logging();
 
     cfg_if::cfg_if! {
         if #[cfg(enable_crash_recovery)] {

@@ -262,7 +262,7 @@ fn current_and_rotated_log_paths() -> Result<Vec<PathBuf>> {
 
     if files.is_empty() {
         return Err(anyhow::anyhow!(
-            "No warp logs were found for {}",
+            "No Warpium logs were found for {}",
             ChannelState::logfile_name()
         ));
     }

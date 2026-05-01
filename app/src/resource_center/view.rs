@@ -504,7 +504,6 @@ impl View for ResourceCenterView {
     fn render(&self, app: &AppContext) -> Box<dyn Element> {
         let appearance = Appearance::as_ref(app);
         let header = self.render_header(appearance, app);
-        let footer = self.render_footer(appearance);
         let resource_center_page = &self.page_views[self.current_view_index].page_view_handle;
 
         let body = match &resource_center_page {
@@ -516,10 +515,15 @@ impl View for ResourceCenterView {
             }
         };
 
-        Flex::column()
+        let mut column = Flex::column()
             .with_child(header)
             .with_child(Shrinkable::new(1., body).finish())
-            .with_child(footer)
-            .finish()
+            .with_main_axis_size(MainAxisSize::Max);
+
+        if !matches!(self.get_current_page(), ResourceCenterPage::Keybindings) {
+            column = column.with_child(self.render_footer(appearance));
+        }
+
+        column.finish()
     }
 }

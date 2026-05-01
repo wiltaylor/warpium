@@ -244,7 +244,9 @@ mod package_manager {
             lines.push(FormattedTextLine::Line(vec![
                 FormattedTextFragment::plain_text("\nReview the command below, then "),
                 FormattedTextFragment::bold("press enter"),
-                FormattedTextFragment::plain_text(" to install the update and re-launch Warpium.  "),
+                FormattedTextFragment::plain_text(
+                    " to install the update and re-launch Warpium.  ",
+                ),
                 FormattedTextFragment::hyperlink(
                     "Please report any issues",
                     "https://github.com/warpdotdev/Warp/issues/new/choose",

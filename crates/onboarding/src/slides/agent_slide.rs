@@ -1,5 +1,6 @@
 use super::two_line_button::{render_two_line_button, TwoLineButtonSpec};
 use crate::model::{OnboardingAuthState, OnboardingStateEvent, OnboardingStateModel};
+use crate::slides::ThirdPartyAgentHandler;
 use crate::slides::{bottom_nav, layout, slide_content};
 use crate::telemetry::OnboardingEvent;
 use warp_core::send_telemetry_from_ctx;
@@ -113,10 +114,18 @@ pub struct AgentDevelopmentSettings {
     pub show_agent_notifications: bool,
     /// Whether onboarding should select the local Claude Code provider.
     pub use_claude_code_provider: bool,
+    /// Which third-party agent should handle browser-launched `/agent` commands.
+    pub agent_command_handler: ThirdPartyAgentHandler,
 }
 
 impl AgentDevelopmentSettings {
     pub fn new(default_model_id: LLMId, use_claude_code_provider: bool) -> Self {
+        let agent_command_handler = if use_claude_code_provider {
+            ThirdPartyAgentHandler::ClaudeCode
+        } else {
+            ThirdPartyAgentHandler::default()
+        };
+
         Self {
             selected_model_id: default_model_id,
             autonomy: Some(AgentAutonomy::default()),
@@ -125,6 +134,7 @@ impl AgentDevelopmentSettings {
             disable_oz: false,
             show_agent_notifications: true,
             use_claude_code_provider,
+            agent_command_handler,
         }
     }
 }

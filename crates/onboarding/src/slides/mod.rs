@@ -25,4 +25,4 @@ pub use intro_slide::IntroSlide;
 pub use onboarding_slide::OnboardingSlide;
 pub use project_slide::{ProjectOnboardingSettings, ProjectSlide};
 pub use theme_picker_slide::{ThemePickerSlide, ThemePickerSlideEvent};
-pub use third_party_slide::ThirdPartySlide;
+pub use third_party_slide::{ThirdPartyAgentHandler, ThirdPartySlide};
